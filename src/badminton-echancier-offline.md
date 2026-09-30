@@ -1,0 +1,1166 @@
+---
+name: "badminton-echancier-offline"
+title: "Échéancier Badminton — version hors-ligne (aucune dépendance)"
+type: "text/html"
+---
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Échéancier Tournoi de Badminton — hors-ligne</title>
+<style>
+  :root { --em: #047857; --em-l: #d1fae5; --em-d: #065f46; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; background: linear-gradient(180deg, #ecfdf5, #f0fdfa); color: #1f2937; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.25rem; color: var(--em-d); margin: 0; }
+  h3 { margin: 0 0 8px; color: var(--em-d); font-size: 1rem; }
+  h4 { margin: 0 0 6px; color: var(--em-d); }
+  .card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); border: 1px solid #d1fae5; }
+  .grid2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  label { font-size: .72rem; color: var(--em); font-weight: 600; display: block; margin-bottom: 2px; }
+  input[type="text"], input[type="number"], input[type="time"], textarea, select {
+    width: 100%; border: 1px solid #a7f3d0; border-radius: 8px; padding: 7px 10px; font-size: .85rem; background: #fff;
+  }
+  input:disabled, select:disabled { opacity: .5; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--em); border-color: var(--em); }
+  /* largeurs compactes : sélectionnées avec l'élément (input.w100) pour
+     battre la règle « input[type=…] { width:100% } » ci-dessus — sans ça,
+     les champs heure prenaient toute la largeur et se chevauchaient sur
+     iPad/iPhone (Safari) */
+  input.w80, select.w80 { width: 80px; }
+  input.w100, select.w100 { width: 100px; }
+  input.w120, select.w120 { width: 120px; }
+  input.w130, select.w130 { width: 130px; }
+  /* rangées de champs d'une carte jour : grille responsive — chaque champ
+     garde une largeur utilisable (les champs heure d'iOS ont besoin de
+     ~110px minimum) et passe à la ligne quand la carte est étroite ; les
+     boîtes ne se chevauchent jamais */
+  .fgrid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); align-items: end; }
+  .fgrid input[type="time"], .fgrid input[type="number"] { width: 100%; }
+  .btn { border: none; border-radius: 10px; padding: 10px 16px; font-weight: 600; font-size: .9rem; cursor: pointer; background: var(--em); color: #fff; }
+  .btn:hover { background: var(--em-d); }
+  .btn[disabled] { opacity: .4; cursor: not-allowed; }
+  .btn-o { background: #fff; color: var(--em-d); border: 1px solid #a7f3d0; }
+  .btn-x { background: #fff; color: #b91c1c; border: 1px solid #fecaca; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; background: #fff; border: 1px solid #d1fae5; border-radius: 12px; padding: 4px; }
+  .tab { border: none; background: transparent; padding: 8px 12px; border-radius: 8px; font-size: .85rem; font-weight: 600; color: var(--em-d); cursor: pointer; }
+  .tab.on { background: var(--em); color: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th { text-align: left; font-size: .68rem; text-transform: uppercase; color: var(--em); border-bottom: 1px solid #d1fae5; padding: 5px 6px; }
+  td { padding: 6px; border-bottom: 1px solid #ecfdf5; vertical-align: middle; }
+  .mono { font-family: ui-monospace, monospace; }
+  .appel { color: #b45309; }
+  .court { background: var(--em-l); color: var(--em-d); border-radius: 6px; padding: 2px 8px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+  .badge { border-radius: 6px; padding: 2px 8px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+  .attb { display: inline-block; border-radius: 6px; padding: 2px 7px; font-size: .66rem; font-weight: 700; white-space: nowrap; }
+  .b-SM { background: #e0f2fe; color: #075985; } .b-SD { background: #ffe4e6; color: #9f1239; }
+  .b-SI { background: #ffedd5; color: #9a3412; } .b-DM { background: #fef3c7; color: #92400e; }
+  .b-DD { background: #ede9fe; color: #5b21b6; } .b-DX { background: #ccfbf1; color: #115e59; }
+  .b-DI { background: #ecfccb; color: #3f6212; }
+  .stat { background: #fff; border: 1px solid #d1fae5; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .stat b { display: block; font-size: 1.05rem; color: var(--em-d); }
+  .stat span { font-size: .68rem; color: var(--em); }
+  .stat i { display: block; font-style: normal; font-size: .62rem; color: #94a3b8; margin-top: 2px; }
+  .stats { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .warn { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 12px; padding: 12px; font-size: .85rem; }
+  .ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: var(--em-d); border-radius: 12px; padding: 10px; font-size: .85rem; }
+  .dayhead { font-size: 1rem; color: var(--em-d); margin: 14px 0 8px; font-weight: 700; text-transform: capitalize; }
+  .poolbox { border-radius: 10px; border: 1px solid #d1fae5; background: #f0fdf4; padding: 8px; font-size: .72rem; }
+  .mut { color: #9ca3af; }
+  /* impression / export PDF : masque les boutons et garde le contenu */
+  @media print { .no-print { display: none !important; } body { background: #fff !important; } }
+  .live-btn { border-radius: 8px; padding: 6px 10px; font-size: .72rem; font-weight: 700; cursor: pointer; border: 1px solid #a7f3d0; background: #fff; }
+  .live-done { background: var(--em); color: #fff; border-color: var(--em); text-decoration: line-through; }
+  .live-wo { color: #b91c1c; border-color: #fecaca; }
+  .wochip { display: inline-block; background: #fff; border: 1px solid #fde68a; border-radius: 6px; padding: 2px 8px; font-size: .72rem; margin-right: 6px; }
+  /* bandeau « Pause Déjeuner/Remise médailles » dans le planning du jour */
+  .prow td { background: #fffbeb; color: #92400e; text-align: center; font-size: .72rem; font-weight: 700; padding: 8px 6px; border-bottom: 1px solid #fde68a; }
+  footer { text-align: center; font-size: .72rem; color: var(--em); padding: 20px 0 30px; }
+  .xdel { margin-left: auto; }
+  /* ---------- thème « Bad18 » (rouge et noir, aux couleurs des logos) ---------- */
+  body.theme-bad18 { --em: #dc2626; --em-l: #fee2e2; --em-d: #7f1d1d; background: linear-gradient(180deg, #fef2f2, #fff1f2); }
+  body.theme-bad18 .card { border-color: #fecaca; }
+  body.theme-bad18 input[type="text"], body.theme-bad18 input[type="number"],
+  body.theme-bad18 input[type="time"], body.theme-bad18 select { border-color: #fca5a5; }
+  body.theme-bad18 .btn-o { border-color: #fca5a5; }
+  body.theme-bad18 .tabs { border-color: #fecaca; }
+  body.theme-bad18 th { border-bottom-color: #fecaca; }
+  body.theme-bad18 td { border-bottom-color: #fef2f2; }
+  body.theme-bad18 .ok { background: #fef2f2; border-color: #fca5a5; }
+  body.theme-bad18 .poolbox { background: #fef2f2; border-color: #fecaca; }
+  body.theme-bad18 .stat { border-color: #fecaca; }
+</style>
+</head>
+<body>
+<div id="root" class="wrap"></div>
+<script>
+"use strict";
+
+/* ============================================================
+   Échéancier prédictif de tournoi de badminton — version hors-ligne
+   JavaScript pur, aucune dépendance externe.
+   - Tableaux : discipline (SM, SD, SI, DM, DD, DX, DI) × classement
+   - Paramètres par tableau : nombre de joueurs/paires, poules,
+     sortants par poule, jour(s) de jeu (samedi / dimanche / les deux)
+   - Ordonnancement glouton minimisant l'attente, repos 20 min,
+     appel 5 min avant chaque match.
+   ============================================================ */
+
+const DISCIPLINES = [
+  { key: "SM", label: "Simple messieurs", unit: "joueurs" },
+  { key: "SD", label: "Simple dames", unit: "joueuses" },
+  { key: "SI", label: "Simple intergenre", unit: "joueurs" },
+  { key: "DM", label: "Double messieurs", unit: "paires" },
+  { key: "DD", label: "Double dames", unit: "paires" },
+  { key: "DX", label: "Double mixte", unit: "paires" },
+  { key: "DI", label: "Double intergenre", unit: "paires" },
+];
+const JOURS = ["samedi", "dimanche"]; // jours par défaut (d'autres ajoutables)
+const REPOS = 20, APPEL = 5;
+const FIN_HOLD = 150; // option « demis et finales en fin de journée » : attente
+// maximale tolérée après la fin des poules d'un tableau (2h30) — au-delà,
+// ses demis/finales avancent dès que possible au lieu d'être tenues
+const ORDINALS = ["1er", "2e", "3e", "4e"];
+const NIVEAUX = { 1: "Finale", 2: "1/2 Finale", 4: "1/4 Finale", 8: "1/8 Finale", 16: "1/16 Finale", 32: "1/32 Finale", 64: "1/64 Finale" };
+const niveauLabel = (nb) => NIVEAUX[nb] || roundName(nb);
+/* étiquette de tour d'un match : « Tour 2 · Poule 3 » en poules,
+   « Ronde 3 » en ronde suisse, « 1/4 Finale » en élimination directe */
+function tourLabel(m, b) {
+  if (m.phase === "poule")
+    return b.suisse ? "Ronde " + (m.round + 1) : "Tour " + (m.round + 1) + " · Poule " + (m.pool + 1);
+  return niveauLabel((b.paperRounds || b.roundsCount)[m.round] || 1);
+}
+
+function bergerRounds(ids) {
+  const arr = [...ids];
+  if (arr.length % 2 === 1) arr.push(-1);
+  const m = arr.length;
+  const rounds = [];
+  for (let r = 0; r < m - 1; r++) {
+    const round = [];
+    for (let i = 0; i < m / 2; i++) {
+      const a = arr[i], b = arr[m - 1 - i];
+      if (a !== -1 && b !== -1) round.push(r % 2 === 0 ? [a, b] : [b, a]);
+    }
+    rounds.push(round);
+    arr.splice(1, 0, arr.pop());
+  }
+  return rounds;
+}
+function bracketOrder(size) {
+  let order = [1];
+  while (order.length < size) {
+    const n = order.length * 2 + 1;
+    const next = [];
+    for (const s of order) next.push(s, n - s);
+    order = next;
+  }
+  return order;
+}
+const nextPow2 = (n) => Math.pow(2, Math.ceil(Math.log2(Math.max(2, n))));
+const fmtTime = (t) => String(Math.floor(t / 60) % 24).padStart(2, "0") + ":" + String(Math.abs(Math.round(t % 60))).padStart(2, "0");
+const toMin = (hhmm, dflt) => {
+  const p = (hhmm || "").split(":").map(Number);
+  if (p.length !== 2 || isNaN(p[0])) return dflt;
+  return (p[0] || 0) * 60 + (p[1] || 0);
+};
+function roundName(nb) {
+  const names = { 1: "Finale", 2: "Demi-finales", 4: "Quarts de finale", 8: "8es de finale", 16: "16es de finale", 32: "32es de finale", 64: "64es de finale" };
+  return names[nb] || "Tour de " + nb + " matchs";
+}
+function qualLabel(q) {
+  if (q === null || q === undefined) return "—";
+  if (typeof q === "string") return "Vainqueur " + q;
+  if (q.nom !== undefined) return q.nom;
+  if (q.suisse) return (q.r === 0 ? "1er" : (q.r + 1) + "e") + " ronde suisse";
+  return ORDINALS[q.r] + " poule " + (q.pi + 1);
+}
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ---------- code couleur des attentes ----------
+   Attente d'un match = temps TOTAL depuis la fin du match précédent
+   du même joueur/paire (poules) — repos minimum inclus — ; pour les
+   finales, celle du qualifié issu de la source finie le plus tôt.
+   Tranches de 30 min à partir de 1h. */
+const ATT_STEPS = [
+  { max: 30, bg: "#059669", fg: "#ffffff", lbl: "< 30 min" },
+  { max: 60, bg: "#d1fae5", fg: "#065f46", lbl: "30 min – 1h" },
+  { max: 90, bg: "#fef08a", fg: "#713f12", lbl: "1h – 1h30" },
+  { max: 120, bg: "#fed7aa", fg: "#7c2d12", lbl: "1h30 – 2h" },
+  { max: Infinity, bg: "#fecaca", fg: "#7f1d1d", lbl: "≥ 2h" },
+];
+const attStep = (w) => ATT_STEPS.find((s) => w < s.max) || ATT_STEPS[ATT_STEPS.length - 1];
+const attFmt = (w) => w >= 60 ? Math.floor(w / 60) + "h" + (w % 60 ? String(w % 60).padStart(2, "0") : "") : w + " min";
+const attStats = (ms) => {
+  const ws = ms.map((m) => m.att).filter((w) => w !== null && w !== undefined);
+  return { max: ws.length ? Math.max.apply(null, ws) : 0, moy: ws.length ? Math.round(ws.reduce((a, b) => a + b, 0) / ws.length) : 0 };
+};
+function attBadgeHtml(att) {
+  if (att === null || att === undefined)
+    return "<span class='attb' style='background:#f1f5f9;color:#64748b' title='premier tour du joueur ou de la paire : attente non applicable'>—</span>";
+  const s = attStep(att);
+  return "<span class='attb' style='background:" + s.bg + ";color:" + s.fg + "' title='attente totale depuis la fin du match précédent, repos de " + REPOS + " min inclus, pour le joueur ou la paire la plus attendu(e) du match'>" + attFmt(att) + "</span>";
+}
+/* parcours d'un tableau : « Poules → Quarts → Demis → Finale », le tour
+   de reprise du jour 2 marqué « (J2) » si coupure */
+function parcoursStr(b, cut) {
+  const parts = [];
+  if (b.suisse) parts.push(b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " suisse" + (b.rondes > 1 ? "s" : ""));
+  else if (b.P > 0) parts.push("Poules");
+  Object.keys(b.roundsCount).map(Number).sort((x, y) => x - y).forEach((r) => {
+    const lbl = niveauLabel((b.paperRounds || b.roundsCount)[r] || 1);
+    parts.push(cut && cut.cut === r ? "(J2) " + lbl : lbl);
+  });
+  return parts.join(" → ");
+}
+
+/* ---------- paramétrage de base ----------
+   5 tableaux par catégorie (« Série 1 » à « Série 5 »), 9 joueurs ou
+   paires par défaut, sans tableaux intergenre (ajoutables manuellement).
+   Convention : simples et mixte le samedi, doubles le dimanche. */
+const BASE_CATS = [["SM", "samedi"], ["SD", "samedi"], ["DX", "samedi"], ["DM", "dimanche"], ["DD", "dimanche"]];
+const baseTabs = () => {
+  const tabs = [];
+  BASE_CATS.forEach((c) => {
+    for (let s = 1; s <= 5; s++)
+      tabs.push({ disc: c[0], classement: "Série " + s, nb: 9, qualifs: 2, jour: c[1] });
+  });
+  return tabs;
+};
+
+/* famille d'une discipline pour les combinaisons toxiques :
+   0 = simples, 1 = mixte, 2 = doubles. Par défaut, les inscriptions
+   n'autorisent pas un joueur/paire sur deux familles le même jour.
+   Si l'option « combinaisons toxiques » est cochée (autorisées si le
+   dimensionnement le permet), l'ordonnancement sérialise les familles
+   dans chaque journée : tous les matchs d'une famille sont terminés
+   avant de démarrer la suivante. */
+const DISC_PHASE = { SM: 0, SD: 0, SI: 0, DX: 1, DM: 2, DD: 2, DI: 2 };
+
+/* logo Bad18 : pastille noire cerclée de rouge, volant blanc à bords
+   rouges et inscription « BAD 18 » — version vectorielle des logos */
+const BAD18_LOGO =
+  "<svg width='48' height='48' viewBox='0 0 96 96' xmlns='http://www.w3.org/2000/svg' role='img' aria-label='Logo Bad18'>" +
+  "<rect x='3' y='3' width='90' height='90' rx='20' fill='#0f0f0f' stroke='#dc2626' stroke-width='4'/>" +
+  "<g transform='translate(77,21)'>" +
+  "<path d='M-10 -14 L10 -14 L5 10 L-5 10 Z' fill='#ffffff'/>" +
+  "<path d='M-10 -14 L-5 10 M0 -14 L0 10 M10 -14 L5 10' stroke='#dc2626' stroke-width='2' fill='none'/>" +
+  "<circle cx='0' cy='16' r='6' fill='#dc2626' stroke='#ffffff' stroke-width='1.5'/>" +
+  "</g>" +
+  "<text x='10' y='38' font-family=\"'Arial Black', Arial, sans-serif\" font-weight='900' font-size='26' fill='#ffffff'>BAD</text>" +
+  "<text x='22' y='80' font-family=\"'Arial Black', Arial, sans-serif\" font-weight='900' font-size='38' fill='#dc2626'>18</text>" +
+  "</svg>";
+
+/* ---------- état ---------- */
+const state = {
+  phase: "config",
+  dureeMatch: 28,
+  marge: 0,
+  combosTox: false,
+  finalesFin: false,
+  theme: "classique",
+  jours: {
+    samedi: { actif: true, terrains: 8, debut: "08:30", fin: "21:50", dureeMatch: "", marge: "", finalesFin: false, pauseDebut: "", pauseFin: "" },
+    dimanche: { actif: true, terrains: 8, debut: "08:30", fin: "17:00", dureeMatch: "", marge: "", finalesFin: false, pauseDebut: "", pauseFin: "" },
+  },
+  tabs: baseTabs(),
+  vueTab: "planning",
+  // suivi en direct : matchs cochés « terminé » et « W.O. » (forfaits) —
+  // un W.O. replanifie la journée sans consommer de créneau terrain
+  live: false,
+  finis: {},
+  wf: {},
+};
+
+const App = {};
+
+/* durée planifiée d'un match = durée moyenne + marge de sécurité
+   (version à deux arguments : durée et marge peuvent être surchargées
+   pour chaque journée, vide = valeur commune) */
+const dureeCalc2 = (d, m) => Math.max(28, Math.floor(+d) || 28) + Math.max(0, Math.floor(+m) || 0);
+const dureeCalc = () => dureeCalc2(state.dureeMatch, state.marge);
+/* durée planifiée effective d'une journée (surcharge possible, vide = commune) */
+const dureeJourOf = (j) => {
+  const J = state.jours[j] || {};
+  return dureeCalc2(
+    J.dureeMatch !== undefined && J.dureeMatch !== "" ? J.dureeMatch : state.dureeMatch,
+    J.marge !== undefined && J.marge !== "" ? J.marge : state.marge
+  );
+};
+
+/* ---------- tailles de poules (règle systématique, priorité 3 > 4 > 5) ----------
+   On retient la combinaison qui minimise le nombre total de matchs de
+   poule ; une seule poule de 3 à 5 inscrits ; au-delà de 24 : pas de
+   poules, élimination directe. */
+function poolSizes(n) {
+  if (n > 24) return []; // élimination directe
+  if (n <= 5) return [Math.max(3, n)]; // une seule poule de 3, 4 ou 5
+  let P = Math.max(1, Math.ceil(n / 3)); // un maximum de poules de 3…
+  while (P > 1 && Math.floor(n / P) < 3) P--; // …jamais moins de 3 par poule
+  const base = Math.floor(n / P), extra = n % P;
+  return Array.from({ length: P }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
+/* ---------- construction d'un tableau ---------- */
+/* tableau final (élimination directe) depuis une liste de qualifiés :
+   semés dans un bracket de taille puissance de 2 (exempts si nécessaire) */
+function bracketFromQuals(tid, quals) {
+  const size = nextPow2(Math.max(2, quals.length));
+  const order = bracketOrder(size);
+  const slots = Array(size).fill(null);
+  quals.forEach((q, i) => { slots[order[i] - 1] = q; });
+  const finals = [];
+  let prev = [];
+  if (quals.length > 0) {
+    for (let i = 0; i < size / 2; i++) {
+      const m = { tid, phase: "finale", round: 0, a: slots[2 * i], b: slots[2 * i + 1], bye: !slots[2 * i] || !slots[2 * i + 1], fid: "T1-" + (i + 1) };
+      prev.push(m); finals.push(m);
+    }
+    let r = 1;
+    while (prev.length > 1) {
+      const nxt = [];
+      for (let i = 0; i < prev.length / 2; i++)
+        nxt.push({ tid, phase: "finale", round: r, a: prev[2 * i].fid, b: prev[2 * i + 1].fid, fid: "T" + (r + 1) + "-" + (i + 1) });
+      finals.push(...nxt); prev = nxt; r++;
+    }
+  }
+  const playedFinals = finals.filter((m) => !(m.round === 0 && m.bye));
+  const roundsCount = {};
+  playedFinals.forEach((m) => { roundsCount[m.round] = (roundsCount[m.round] || 0) + 1; });
+  // nombre de matchs « papier » par tour (exempts compris) : c'est LUI qui
+  // donne le nom du tour (un 1er tour de bracket 64 = « 1/32 finale », même
+  // si 30 exempts réduisent les matchs réellement joués à 2)
+  const paperRounds = {};
+  finals.forEach((m) => { paperRounds[m.round] = (paperRounds[m.round] || 0) + 1; });
+  return { finals: finals, playedFinals: playedFinals, roundsCount: roundsCount, paperRounds: paperRounds };
+}
+
+function buildTab(t, tid) {
+  const n = Math.max(3, Math.floor(t.nb) || 3);
+  const unit = (DISCIPLINES.find((d) => d.key === t.disc) || {}).unit || "joueurs";
+  const nom = (i) => (unit === "paires" ? "Paire " : "Joueur ") + (i + 1);
+  const label = t.disc + (t.classement ? " " + t.classement : "");
+  /* ---------- format « ronde suisse » (avec ou sans élimination directe) :
+     pas de poules, personne n'est éliminé — chaque inscrit joue une fois
+     par ronde contre un adversaire proche (appariement simulé par
+     rotation : l'échéancier est prédictif, sans résultats). Nombre de
+     rondes réglable (« Rondes », vide = auto ⌈log₂(n)⌉ min 3, plafonné
+     au maximum sans rejouer le même adversaire) ; 1 exempt par ronde si
+     le nombre d'inscrits est impair. Avec élimination directe : les Q
+     premiers (champ « sortants ») sortent vers un tableau final ; sans,
+     le classement final se fait aux victoires puis départages. */
+  if (t.format === "suisse" || t.format === "suisse-elim") {
+    const ids = [];
+    for (let i = 0; i < n; i++) ids.push(i);
+    const nat = bergerRounds(ids);
+    const rAuto = Math.max(3, Math.ceil(Math.log2(Math.max(2, n))));
+    const R = Math.min(nat.length, Math.max(1, Math.floor(+t.rondes) || rAuto));
+    const parRonde = Math.floor(n / 2); // matchs joués simultanément par ronde
+    const poolMs = [];
+    nat.slice(0, R).forEach(function (round, ri) {
+      round.forEach(function (pair) {
+        poolMs.push({ tid: tid, phase: "poule", pool: ri, round: ri, a: nom(pair[0]), b: nom(pair[1]), aK: tid + ":" + pair[0], bK: tid + ":" + pair[1], suisse: true });
+      });
+    });
+    // inscrits impairs : 1 exempt par ronde, qui tourne — jamais le même
+    // deux fois tant que chaque inscrit n'a pas été exempté une fois
+    const exempts = [];
+    if (n % 2 === 1) nat.slice(0, R).forEach(function (round, ri) {
+      const pres = {};
+      round.forEach(function (pr) { pres[pr[0]] = 1; pres[pr[1]] = 1; });
+      for (let i = 0; i < n; i++) if (!pres[i]) { exempts.push({ r: ri, j: i }); break; }
+    });
+    const seule = t.format === "suisse";
+    const Q = seule ? 0 : Math.max(2, Math.min(Math.floor(t.qualifs) || 2, n));
+    const quals = [];
+    if (!seule) for (let i = 0; i < Q; i++) quals.push({ suisse: true, r: i });
+    const br = bracketFromQuals(tid, quals);
+    return { tab: t, tid: tid, pools: [], sizes: [], P: parRonde, Q: Q, n: n, unit: unit, nom: nom, poolMs: poolMs,
+      finals: br.finals, playedFinals: br.playedFinals, roundsCount: br.roundsCount, paperRounds: br.paperRounds, label: label, exempts: exempts,
+      suisse: true, seule: seule, rondes: R, parRonde: parRonde };
+  }
+  const sizes = poolSizes(n);
+  const P = sizes.length;
+  const pools = sizes.map(() => []);
+  let idx = 0;
+  for (let band = 0; P > 0 && idx < n; band++) {
+    for (let k = 0; k < P && idx < n; k++) {
+      const pi = band % 2 === 0 ? k : P - 1 - k;
+      if (pools[pi].length < sizes[pi]) pools[pi].push(idx++);
+    }
+  }
+  const poolMs = [];
+  pools.forEach((ids, pi) => {
+    bergerRounds(ids).forEach((round, ri) => round.forEach((pair) =>
+      poolMs.push({ tid, phase: "poule", pool: pi, round: ri, a: nom(pair[0]), b: nom(pair[1]), aK: tid + ":" + pair[0], bK: tid + ":" + pair[1] })));
+  });
+  // règle : une poule unique (3-5 inscrits) est le tableau final lui-même —
+  // pas de sortants, pas de suite en élimination directe ; les sortants et le
+  // tableau à élimination directe n'existent que s'il y a plus d'une poule
+  // (ou élimination directe d'emblée au-delà de 24 inscrits)
+  const direct = P === 0; // élimination directe (> 24 inscrits)
+  const unique = P === 1; // poule unique : classement final de la poule
+  const Q = (direct || unique) ? 0 : Math.max(1, Math.min(Math.floor(t.qualifs) || 1, Math.min(...pools.map((p) => p.length))));
+  const quals = direct ? Array.from({ length: n }, (_, i) => ({ entrant: i, nom: nom(i) })) : [];
+  if (!direct && !unique) pools.forEach((ids, pi) => { for (let r = 0; r < Q; r++) quals.push({ pi, r }); });
+  const br = bracketFromQuals(tid, quals);
+  return { tab: t, tid: tid, pools: pools, sizes: sizes, P: P, Q: Q, n: n, unit: unit, nom: nom, poolMs: poolMs,
+    finals: br.finals, playedFinals: br.playedFinals, roundsCount: br.roundsCount, paperRounds: br.paperRounds, label: label, suisse: false };
+}
+
+/* ---------- coupure jour 2 pour les tableaux sur deux jours ---------- */
+function cutsDeuxJours(built, jours, duree) {
+  const days = Object.keys(jours).filter((j) => jours[j].actif);
+  const res = {};
+  if (days.length < 2) return res;
+  const terr = (j) => Math.max(1, Math.floor(+jours[j].terrains) || 1);
+  const capDay1 = Math.floor(Math.max(0, toMin(jours[days[0]].fin, 18 * 60) - toMin(jours[days[0]].debut, 9 * 60)) / duree) * terr(days[0]);
+  let remaining = capDay1;
+  built.forEach((b) => {
+    if (b.tab.jour === days[0]) remaining -= b.poolMs.length + b.playedFinals.length;
+  });
+  built.forEach((b) => {
+    if (b.tab.jour !== "les-deux") return;
+    const R = Object.keys(b.roundsCount).length;
+    if (R === 0) return; // poule unique : pas de tableau final, pas de coupure
+    const sumRounds = (from, to) => { let s = 0; for (let r = from; r <= to; r++) s += b.roundsCount[r] || 0; return s; };
+    const semisIdx = Math.max(0, R - 2);
+    const quartersIdx = Math.max(0, R - 3);
+    const mSemis = b.poolMs.length + sumRounds(0, semisIdx - 1);
+    const mQuarts = b.poolMs.length + sumRounds(0, quartersIdx - 1);
+    let cut = quartersIdx;
+    if (remaining - mSemis >= 0) { cut = semisIdx; remaining -= mSemis; }
+    else remaining -= mQuarts;
+    res[b.tid] = { cut: cut, label: roundName((b.paperRounds || b.roundsCount)[cut] || 1) };
+  });
+  return res;
+}
+
+/* ---------- moteur d'ordonnancement ---------- */
+/* Chaque jour peut définir une pause déjeuner (aucun match ne la
+   chevauche) ; le 7e argument (facultatif) liste les matchs « W.O. »
+   (forfaits) : ils ne consomment pas de terrain et libèrent les
+   matchs qui en dépendent — la journée est replanifiée sans eux. */
+function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, forfaits) {
+  // durée planifiée = durée moyenne + marge de sécurité : la marge absorbe
+  // les dépassements réels pour que le repos de 20 min reste garanti
+  const duree = Math.max(28, Math.floor(+dureeBrut) || 28) + Math.max(0, Math.floor(+margeBrut) || 0);
+  const days = Object.keys(jours).filter((j) => jours[j].actif);
+  // durée et marge peuvent être surchargées pour chaque journée (paramètre
+  // vide = valeur commune) ; l'option « demis et finales en fin de journée »
+  // est également propre à chaque jour (le 6e argument reste la valeur de
+  // repli pour un jour qui ne la précise pas)
+  const resDuree = (day) => {
+    const j = jours[day] || {};
+    return dureeCalc2(
+      j.dureeMatch !== undefined && j.dureeMatch !== "" ? j.dureeMatch : dureeBrut,
+      j.marge !== undefined && j.marge !== "" ? j.marge : margeBrut
+    );
+  };
+  const built = tabs.map((t, i) => buildTab(t, i));
+  const items = [];
+  built.forEach((b) => {
+    b.poolMs.forEach((m) => items.push(Object.assign({}, m, { scheduled: false })));
+    b.playedFinals.forEach((m) => items.push(Object.assign({}, m, { scheduled: false })));
+  });
+  // clé stable d'un match (suivi en direct : terminé / W.O.) + marque W.O.
+  // un même tour de poule contient plusieurs affrontements simultanés : la
+  // clé distingue la paire (indices des deux inscrits) pour qu'un W.O.
+  // n'exclue que SON match
+  items.forEach((m) => {
+    m.key = m.phase === "poule"
+      ? "P" + m.tid + "-" + m.pool + "-" + m.round + "-" + m.aK.split(":")[1] + "-" + m.bK.split(":")[1]
+      : "F" + m.tid + "-" + m.fid;
+    m.forfait = forfaits !== undefined && forfaits !== null && typeof forfaits.has === "function" && forfaits.has(m.key);
+  });
+  // intercalage : un match de tableau final ne dépend que de ses deux
+  // matchs sources (fin du tour précédent), pas de la fin de tout le
+  // tour — dès que ses sources sont terminées il peut démarrer, même si
+  // d'autres matchs du tour précédent se jouent encore
+  const finByFid = new Map();
+  items.forEach((m) => { if (m.phase !== "poule") finByFid.set(m.tid + "|" + m.fid, m); });
+  const feederEnd = (m) => {
+    if (m.round === 0) return -1e9;
+    let pe = -1e9;
+    [m.a, m.b].forEach((fid) => {
+      const fm = finByFid.get(m.tid + "|" + fid);
+      if (fm === undefined) pe = Math.max(pe, -1e9);
+      // source « W.O. » (forfait) : dure 0 min — elle « finit » dès que
+      // SES propres sources sont terminées
+      else if (fm.forfait) pe = Math.max(pe, feederEnd(fm));
+      // source « bye » (exemptée) : jamais planifiée → sans contrainte
+      else pe = Math.max(pe, fm.scheduled ? fm.time + (fm.duree !== undefined ? fm.duree : duree) : Infinity);
+    });
+    return pe;
+  };
+  const cuts = cutsDeuxJours(built, jours, days.length ? resDuree(days[0]) : duree);
+  const allowed = (m) => {
+    const b = built[m.tid];
+    const j = b.tab.jour;
+    if (j === "les-deux") {
+      if (days.length > 1 && m.phase === "finale" && cuts[b.tid] && m.round >= cuts[b.tid].cut)
+        return [days[1]];
+      return days.slice();
+    }
+    return days.includes(j) ? [j] : days.slice();
+  };
+  // nombre de tours par tableau (tours de poule + tours du tableau final) :
+  // critère de départage — les séries les plus longues démarrent en premier
+  const nbRoundsTab = built.map((b) =>
+    (b.poolMs.length ? Math.max.apply(null, b.poolMs.map((m) => m.round)) + 1 : 0) +
+    Object.keys(b.roundsCount).length);
+  // regroupement par série : « Série 2 » → 2 ; classement libre → fin de liste.
+  // Les tableaux d'une même série (SM Série 1, SD Série 1, DX Série 1…)
+  // forment un bloc qui démarre ensemble, avant la série suivante.
+  const serieIdx = built.map((b) => {
+    const mm = /Série\s*(\d+)/i.exec(String(b.tab.classement || ""));
+    return mm ? parseInt(mm[1], 10) : Number.MAX_SAFE_INTEGER;
+  });
+  const sched = [];
+  const perDay = {};
+  const dayDuree = {}; // jour -> durée planifiée effective de ses matchs
+  const lastEnd = new Map();
+  for (const day of days) {
+    const j = jours[day];
+    const dureeJ = resDuree(day);
+    const finalesFinJ = j.finalesFin !== undefined ? !!j.finalesFin : !!finalesFin;
+    dayDuree[day] = dureeJ;
+    const start = toMin(j.debut, 9 * 60);
+    const end = toMin(j.fin, 18 * 60);
+    const courts = Array.from({ length: Math.max(1, j.terrains) }, () => start);
+    // pause déjeuner du jour (facultative) : aucun match ne la chevauche
+    const pauseD = toMin(j.pauseDebut, null);
+    const pauseF = toMin(j.pauseFin, null);
+    const hasPause = pauseD !== null && pauseF !== null && pauseF > pauseD;
+    lastEnd.clear();
+    const queue = items.filter((m) => !m.scheduled && !m.forfait && allowed(m).includes(day));
+    const st = built.map(() => ({ poolLeft: 0, roundLeft: {}, roundEnd: {}, swissLeft: {} }));
+    queue.forEach((m) => {
+      if (m.phase === "poule") {
+        st[m.tid].poolLeft++;
+        if (m.suisse) st[m.tid].swissLeft[m.round] = (st[m.tid].swissLeft[m.round] || 0) + 1;
+      }
+      else st[m.tid].roundLeft[m.round] = (st[m.tid].roundLeft[m.round] || 0) + 1;
+    });
+    // ---- démarrage progressif des tableaux ----
+    // on ne lance pas tous les tableaux d'un coup : les séries dont les
+    // tours sont les plus nombreux démarrent en premier et occupent les
+    // terrains ; les suivantes sont mises en jeu progressivement, quand
+    // les tableaux actifs n'ont plus de match prêt — certaines démarrent
+    // ainsi l'après-midi, quand les premières sont terminées. Cela garde
+    // les tours de chaque tableau groupés et réduit les temps d'attente.
+    const dayCount = {};
+    const dayTids = [];
+    queue.forEach((m) => {
+      dayCount[m.tid] = (dayCount[m.tid] || 0) + 1;
+      if (dayTids.indexOf(m.tid) < 0) dayTids.push(m.tid);
+    });
+    const dayOrder = dayTids.slice().sort((x, y) =>
+      nbRoundsTab[y] - nbRoundsTab[x] || serieIdx[x] - serieIdx[y] ||
+      dayCount[y] - dayCount[x] || x - y);
+    const activeTids = new Set();
+    let actIdx = 0, cumPools = 0;
+    while (actIdx < dayOrder.length && (actIdx === 0 || cumPools < courts.length)) {
+      activeTids.add(dayOrder[actIdx]);
+      cumPools += Math.max(1, built[dayOrder[actIdx]].P || 0);
+      actIdx++;
+    }
+    const okActive = (m) => activeTids.has(m.tid);
+    const pStart = (m) => {
+      if (m.phase === "poule") {
+        // ronde suisse : une ronde ne démarre que lorsque la précédente du
+        // même tableau est entièrement planifiée (ordre des rondes strict)
+        if (m.suisse && (st[m.tid].swissLeft[m.round - 1] || 0) > 0) return Infinity;
+        return Math.max((lastEnd.get(m.aK) !== undefined ? lastEnd.get(m.aK) : -1e9) + REPOS, (lastEnd.get(m.bK) !== undefined ? lastEnd.get(m.bK) : -1e9) + REPOS);
+      }
+      const s = st[m.tid];
+      if (s.poolLeft > 0) return Infinity;
+      // ronde suisse + élimination directe : le tableau final ne démarre
+      // qu'après la FIN de la dernière ronde (résultats complets) + repos
+      if (built[m.tid].suisse && m.round === 0) return (s.poolEnd !== undefined ? s.poolEnd : -1e9) + REPOS;
+      // option « demis et finales en fin de journée » (propre à chaque jour) :
+      // les demis et finales sont tenues en fin de journée, une fois toutes les
+      // poules du jour terminées — SAUF si le tableau attendrait plus de 2h30
+      // (FIN_HOLD) après la fin de ses propres poules : ses tours finals
+      // avancent alors dès que possible. Les tableaux démarrés tardivement ou
+      // dont les tours sont de toute façon tardifs restent tenus.
+      if (finalesFinJ) {
+        const R = Object.keys(built[m.tid].roundsCount).length;
+        if (m.round >= R - 2) {
+          // les poules du jour sont-elles encore à jouer ou en jeu ?
+          let unPool = 0;
+          queue.forEach((q) => { if (!q.scheduled && q.phase === "poule") unPool++; });
+          if (unPool > 0 || poolPlayEnd > curT0) {
+            // estimation de la fin de TOUTES les poules du jour
+            const estPoolsEnd = Math.max(poolPlayEnd,
+              curT0 + Math.ceil(unPool / courts.length) * (dureeJ + REPOS));
+            const peTab = s.poolEnd !== undefined ? s.poolEnd : curT0;
+            if (peTab + FIN_HOLD > estPoolsEnd) return Infinity; // tenue
+          }
+        }
+      }
+      const pe = feederEnd(m);
+      return pe === Infinity ? Infinity : pe + REPOS;
+    };
+    const prio = (m) => {
+      // en poule : le participant qui attend depuis le PLUS LONGTEMPS
+      // (fin de match la plus ancienne) est servi en premier → les
+      // attentes longues (> 1h) sont réduites au maximum
+      if (m.phase === "poule")
+        return Math.min(lastEnd.get(m.aK) !== undefined ? lastEnd.get(m.aK) : -1e9, lastEnd.get(m.bK) !== undefined ? lastEnd.get(m.bK) : -1e9);
+      return st[m.tid].roundEnd[m.round] !== undefined ? st[m.tid].roundEnd[m.round] : -1e9;
+    };
+    let poolPlayEnd = -1e9; // fin (heure) du dernier match de poule planifié du jour
+    let curT0 = -1e9;       // heure courante du terrain libre le plus tôt
+    let guard = 0;
+    for (;;) {
+      if (++guard > 20000) break;
+      let ci = -1, t0 = Infinity;
+      courts.forEach((c, i) => { if (c < t0) { t0 = c; ci = i; } });
+      if (ci === -1) break;
+      curT0 = t0;
+      // pas de coupure d'heure de fin : tous les matchs sont planifiés,
+      // même au-delà de l'horaire officiel (dépassement indiqué ensuite)
+      const remaining = queue.some((m) => !m.scheduled);
+      if (!remaining) { courts[ci] = Infinity; continue; }
+      // combinaisons toxiques autorisées (option) : phase courante = famille
+      // la moins avancée encore à jouer ce jour ; on ne joue jamais une
+      // famille tant qu'une famille précédente a des matchs en attente
+      let phaseMin = -1;
+      if (combosTox) {
+        phaseMin = Infinity;
+        queue.forEach((m) => {
+          if (!m.scheduled) phaseMin = Math.min(phaseMin, DISC_PHASE[built[m.tid].tab.disc] || 0);
+        });
+      }
+      const okPhase = (m) => phaseMin < 0 || (DISC_PHASE[built[m.tid].tab.disc] || 0) === phaseMin;
+      const cands = queue.filter((m) => !m.scheduled && pStart(m) <= t0 && okActive(m) && okPhase(m));
+      if (!cands.length) {
+        // aucun match prêt parmi les tableaux actifs : mise en jeu
+        // progressive du tableau suivant (jusqu'à ce que tous démarrent)
+        if (actIdx < dayOrder.length) {
+          activeTids.add(dayOrder[actIdx]);
+          cumPools += Math.max(1, built[dayOrder[actIdx]].P || 0);
+          actIdx++;
+          continue;
+        }
+        let nxt = Infinity;
+        queue.forEach((m) => { if (!m.scheduled && okPhase(m)) nxt = Math.min(nxt, pStart(m)); });
+        if (nxt === Infinity) { courts[ci] = Infinity; continue; }
+        courts[ci] = Math.max(t0, nxt);
+        continue;
+      }
+      // départages après la priorité d'attente : même tour d'abord,
+      // puis séries ayant le plus de tours, puis poules dans l'ordre,
+      // puis tableau — les matchs d'une même poule et d'un même tour
+      // restent groupés, chaque tour se termine avant les suivants
+      cands.sort((x, y) =>
+        prio(x) - prio(y) ||
+        x.round - y.round ||
+        nbRoundsTab[y.tid] - nbRoundsTab[x.tid] ||
+        (x.phase === "poule" && y.phase === "poule" ? x.pool - y.pool : 0) ||
+        x.tid - y.tid
+      );
+      const m = cands[0];
+      const ps = pStart(m);
+      let time = Math.max(t0, ps);
+      // pause déjeuner : un match qui chevaucherait la pause démarre après
+      if (hasPause && time < pauseF && time + dureeJ > pauseD) time = pauseF;
+      // attente TOTALE (repos inclus) depuis le match précédent du
+      // joueur/de la paire concernée : la plus longue des deux (poules) ;
+      // pour les finales, celle du qualifié issu de la source finie le
+      // plus tôt (le plus attendu des deux)
+      if (m.phase === "poule") {
+        const wa = lastEnd.has(m.aK) ? time - lastEnd.get(m.aK) : -1;
+        const wb = lastEnd.has(m.bK) ? time - lastEnd.get(m.bK) : -1;
+        m.att = wa < 0 && wb < 0 ? null : Math.max(wa, wb);
+      } else {
+        // attente du qualifié le plus attendu : sa source est celle qui
+        // finit le plus tôt ; une source W.O. dure 0 min (elle finit
+        // quand SES sources finissent)
+        let peMin = Infinity, found = false;
+        [m.a, m.b].forEach(function (fid) {
+          const fm = finByFid.get(m.tid + "|" + fid);
+          let e;
+          if (fm !== undefined && fm.forfait) e = feederEnd(fm);
+          else if (fm !== undefined && fm.scheduled) e = fm.time + (fm.duree !== undefined ? fm.duree : dureeJ);
+          if (e !== undefined) { found = true; peMin = Math.min(peMin, e); }
+        });
+        m.att = found ? time - peMin : null;
+      }
+      m.scheduled = true; m.day = day; m.time = time; m.court = ci; m.appel = time - APPEL; m.duree = dureeJ;
+      courts[ci] = time + dureeJ;
+      if (m.phase === "poule") {
+        lastEnd.set(m.aK, time + dureeJ); lastEnd.set(m.bK, time + dureeJ);
+        st[m.tid].poolLeft--;
+        if (m.suisse) st[m.tid].swissLeft[m.round] = (st[m.tid].swissLeft[m.round] || 1) - 1;
+        st[m.tid].poolEnd = Math.max(st[m.tid].poolEnd || 0, time + dureeJ);
+        poolPlayEnd = Math.max(poolPlayEnd, time + dureeJ);
+      } else {
+        st[m.tid].roundLeft[m.round] = (st[m.tid].roundLeft[m.round] || 1) - 1;
+        st[m.tid].roundEnd[m.round] = Math.max(st[m.tid].roundEnd[m.round] || 0, time + dureeJ);
+      }
+      (perDay[day] = perDay[day] || []).push(m);
+      sched.push(m);
+    }
+  }
+  const attentes = [];
+  for (const day of days) {
+    const byP = new Map();
+    (perDay[day] || []).forEach((m) => {
+      if (m.phase !== "poule") return;
+      if (!byP.has(m.aK)) byP.set(m.aK, []);
+      byP.get(m.aK).push(m.time);
+      if (!byP.has(m.bK)) byP.set(m.bK, []);
+      byP.get(m.bK).push(m.time);
+    });
+    byP.forEach((times) => {
+      times.sort((x, y) => x - y);
+      for (let i = 1; i < times.length; i++) {
+        const w = times[i] - (times[i - 1] + dayDuree[day]);
+        if (w >= 0) attentes.push({ day: day, w: w });
+      }
+    });
+  }
+  // matchs W.O. (forfaits) : jamais planifiés sur un terrain — ils sont
+  // exclus des créneaux et rattachés à leur jour pour les comptages
+  const forfList = items.filter((m) => m.forfait);
+  forfList.forEach((m) => {
+    const ad = allowed(m);
+    m.day = ad.length ? ad[0] : (days.length ? days[0] : null);
+    m.att = null;
+  });
+  return { sched, perDay, built, days, unscheduled: items.filter((m) => !m.scheduled && !m.forfait), attentes, cuts, forfaits: forfList };
+}
+
+/* ---------- rendu : configuration ---------- */
+function renderConfig() {
+  const jourCard = (j) => {
+    const J = state.jours[j];
+    const delBtn = (j !== "samedi" && j !== "dimanche")
+      ? '<button class="btn-x" style="padding:4px 10px;font-size:.75rem" onclick="App.supprJour(\'' + j + '\')">✕</button>'
+      : "";
+    return '<div class="card">' +
+      '<div class="row" style="justify-content:space-between;align-items:center">' +
+        "<h3>" + j.charAt(0).toUpperCase() + j.slice(1) + "</h3>" +
+        '<div style="display:flex;align-items:center;gap:8px">' + delBtn +
+        '<label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer">' +
+          '<input type="checkbox" style="width:auto" ' + (J.actif ? "checked" : "") + ' onchange="App.setJour(\'' + j + '\',\'actif\',this.checked)">' +
+          "Actif</label>" +
+        "</div>" +
+      "</div>" +
+      '<div class="' + (J.actif ? "" : "mut") + '">' +
+        '<div class="fgrid" style="margin-top:8px">' +
+          "<div><label>Terrains</label><input type='number' min='1' max='16' class='w80' value='" + J.terrains + "' " + (J.actif ? "" : "disabled") + " onchange=\"App.setJourNum('" + j + "','terrains',this.value)\"></div>" +
+          "<div><label>Début</label><input type=\"time\" class='w100' value=\"" + J.debut + "\" " + (J.actif ? "" : "disabled") + " onchange=\"App.setJour('" + j + "','debut',this.value)\"></div>" +
+          "<div><label>Fin</label><input type=\"time\" class='w100' value=\"" + J.fin + "\" " + (J.actif ? "" : "disabled") + " onchange=\"App.setJour('" + j + "','fin',this.value)\"></div>" +
+        "</div>" +
+        '<div class="fgrid" style="margin-top:6px">' +
+          "<div><label>Durée match (min)</label><input type='number' min='28' max='90' class='w80' placeholder='" + state.dureeMatch + "' value='" + (J.dureeMatch !== undefined ? J.dureeMatch : "") + "' " + (J.actif ? "" : "disabled") + " onchange=\"App.setJourNum('" + j + "','dureeMatch',this.value)\"></div>" +
+          "<div><label>Marge aléas (min)</label><input type='number' min='0' max='20' class='w80' placeholder='" + state.marge + "' value='" + (J.marge !== undefined ? J.marge : "") + "' " + (J.actif ? "" : "disabled") + " onchange=\"App.setJourNum('" + j + "','marge',this.value)\"></div>" +
+          '<label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.72rem;align-self:end;padding-bottom:8px" title="les demis et finales de ce jour sont programmées en fin de journée, sauf si un tableau attendrait plus de 2h30 après la fin de ses poules">' +
+            '<input type="checkbox" style="width:auto" ' + (J.finalesFin ? "checked" : "") + " " + (J.actif ? "" : "disabled") + " onchange=\"App.setJour('" + j + "','finalesFin',this.checked)\">" +
+            "Demis et finales en fin de journée</label>" +
+        "</div>" +
+        '<div class="fgrid" style="margin-top:6px">' +
+          "<div><label title=\"aucun match n'est planifié pendant la pause ; vides = pas de pause\">Pause Déjeuner/Remise médailles — de</label><input type=\"time\" class='w100' placeholder=\"12:30\" value=\"" + (J.pauseDebut !== undefined ? J.pauseDebut : "") + "\" " + (J.actif ? "" : "disabled") + " onchange=\"App.setJour('" + j + "','pauseDebut',this.value)\"></div>" +
+          "<div><label title=\"heure de reprise estimée après la pause\">à (reprise)</label><input type=\"time\" class='w100' placeholder=\"13:30\" value=\"" + (J.pauseFin !== undefined ? J.pauseFin : "") + "\" " + (J.actif ? "" : "disabled") + " onchange=\"App.setJour('" + j + "','pauseFin',this.value)\"></div>" +
+        "</div>" +
+        '<div style="font-size:.62rem;color:#9ca3af;margin-top:6px">Terrains : min 1 · max 16 · durée et marge vides = valeurs communes · pause (Déjeuner/Remise médailles) vide = pas de pause (heure estimée usuelle : 12:30 → 13:30).</div>' +
+      "</div>" +
+    "</div>";
+  };
+  const tabCard = (t, i) => {
+    const b = buildTab(t, i);
+    const builtAll = state.tabs.map((t2, k) => buildTab(t2, k));
+    const joursActifsC = Object.keys(state.jours).filter((jk) => state.jours[jk].actif);
+    const cuts = cutsDeuxJours(builtAll, state.jours, joursActifsC.length ? dureeJourOf(joursActifsC[0]) : dureeCalc());
+    const cutInfo = t.jour === "les-deux" && cuts[i] ? " · jour 2 : à partir des " + cuts[i].label.toLowerCase() : "";
+    const opt = (d) => '<option value="' + d.key + '" ' + (t.disc === d.key ? "selected" : "") + ">" + d.key + "</option>";
+    const jopt = (v, l) => '<option value="' + v + '" ' + (t.jour === v ? "selected" : "") + ">" + l + "</option>";
+    const fmtSel = (v, l) => '<option value="' + v + '" ' + ((t.format || "poules") === v ? "selected" : "") + ">" + l + "</option>";
+    const jourOpts = Object.keys(state.jours).map((jk) => jopt(jk, jk.charAt(0).toUpperCase() + jk.slice(1))).join("") + jopt("les-deux", "Les deux");
+    return '<div class="card">' +
+      '<div class="row">' +
+        "<div><label>Discipline</label><select class='w80' onchange=\"App.setTab(" + i + ",'disc',this.value)\">" + DISCIPLINES.map(opt).join("") + "</select></div>" +
+        "<div><label>Classement</label><input type='text' class='w100' placeholder='ex : D9-P12' value='" + esc(t.classement) + "' oninput=\"App.setTabSilent(" + i + ",'classement',this.value)\"></div>" +
+        "<div><label>" + b.unit + "</label><input type='number' min='3' class='w80' value='" + t.nb + "' onchange=\"App.setTabNum(" + i + ",'nb',this.value)\"></div>" +
+        "<div><label>Format</label><select style='width:170px' onchange=\"App.setTab(" + i + ",'format',this.value === 'poules' ? '' : this.value)\">" +
+          fmtSel("poules", "Poules + élim. directe") + fmtSel("suisse-elim", "Ronde suisse + élim. directe") + fmtSel("suisse", "Ronde suisse seule") + "</select></div>" +
+        ((t.format === "suisse" || t.format === "suisse-elim")
+          ? "<div><label>Rondes</label><input type='number' min='1' style='width:64px' title='vide = automatique : ⌈log₂(inscrits)⌉, minimum 3' placeholder='auto' value='" + (t.rondes === undefined ? "" : esc(t.rondes)) + "' onchange=\"App.setTab(" + i + ",'rondes',this.value)\"></div>"
+          : "") +
+        "<div><label>" + (t.format === "suisse-elim" ? "Qualifiés élim." : "Sortants/poule") + "</label><input type='number' min='" + (t.format === "suisse-elim" ? "2" : "1") + "' " + (t.format === "suisse-elim" ? "" : "max='4' ") + "class='w80' " + (t.format === "suisse" ? "disabled " : "") + "value='" + t.qualifs + "' onchange=\"App.setTabNum(" + i + ",'qualifs',this.value)\"></div>" +
+        "<div><label>Jour(s)</label><select class='w130' onchange=\"App.setTab(" + i + ",'jour',this.value)\">" +
+          jourOpts + "</select></div>" +
+        '<button class="btn-x xdel" onclick="App.supprTab(' + i + ')">✕ Retirer</button>' +
+      "</div>" +
+      '<p style="font-size:.75rem;color:var(--em);margin:10px 0 0"><b>' + esc(b.label) + "</b> — " +
+      (b.suisse
+        ? "ronde suisse : " + b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " × " + b.parRonde + " match" + (b.parRonde > 1 ? "s" : "") + " (" + (b.n % 2 === 1 ? "1 exempt par ronde · " : "") + b.poolMs.length + " matchs au total)" +
+          (b.seule ? " — classement final aux victoires puis départages" : " — " + b.Q + " qualifié(s) → élimination directe (" + b.playedFinals.length + " matchs de tableau final)")
+        : b.P === 0
+        ? "élimination directe : " + b.n + " " + b.unit + " (" + b.playedFinals.length + " matchs)"
+        : b.P === 1
+        ? "poule unique de " + b.n + " " + b.unit + " — " + b.poolMs.length + " matchs, classement final de la poule : pas de sortants ni de suite en élimination directe (le champ « Sortants/poule » ne s'applique pas)."
+        : b.P + " poule(s) : " + b.sizes.join(" + ") + " " + b.unit + " (" + b.poolMs.length + " matchs de poule), " + (b.P * b.Q) + " qualifiés, " + b.playedFinals.length + " matchs de tableau final.") +
+      (t.jour !== "les-deux" && state.jours[t.jour] && !state.jours[t.jour].actif ? " ⚠️ " + t.jour + " inactif" : "") + cutInfo + "</p>" +
+    "</div>";
+  };
+  return '<div style="max-width:920px;margin:0 auto">' +
+    '<div class="card" style="margin-bottom:16px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' + BAD18_LOGO + "<h1>🏸 Échéancier Tournoi de Badminton</h1></div>" +
+      '<p style="font-size:.85rem;color:var(--em)">Paramétrage de base : 5 tableaux par catégorie (« Série 1 » à « Série 5 »), 9 joueurs ou paires par défaut, sans tableaux intergenre (ajoutables manuellement). Convention : simples et mixte le samedi, doubles le dimanche. Les poules (3-5) sont composées automatiquement pour minimiser le nombre de matchs ; au-delà de 24 inscrits, élimination directe. Aucun nom à saisir. L\'échéancier démarre ensuite les tableaux progressivement — les séries aux tours les plus nombreux d\'abord, les suivantes au fil des créneaux libérés — et alterne les matchs pour minimiser l\'attente, avec ' + REPOS + " min de repos minimum et " + APPEL + " min d'appel.</p>" +
+    "</div>" +
+    "<h3>🗓️ Jours du tournoi</h3>" +
+    '<div class="grid2" style="margin-bottom:10px">' + Object.keys(state.jours).map(jourCard).join("") + "</div>" +
+    '<button class="btn btn-o" style="margin-bottom:6px"' + (Object.keys(state.jours).length >= 4 ? " disabled" : "") + ' onclick="App.ajoutJour()">＋ Ajouter un jour</button>' +
+    '<p style="font-size:.72rem;color:var(--em);margin:0 0 16px">« Demis et finales en fin de journée » est propre à chaque jour : les demis et finales des tableaux sont programmées en fin de journée pour enchaîner la remise des prix — mais si un tableau attendrait plus de 2h30 après la fin de ses propres poules, ses tours finals avancent dès que possible. Les tableaux démarrés tardivement ou aux tours naturellement tardifs restent tenus en fin de journée. Durée et marge laissées vides = valeurs communes.</p>' +
+    '<div class="card" style="margin-bottom:16px"><h3>⚙️ Paramètres communs</h3>' +
+      "<div class='row'><div><label>Durée moyenne d'un match (min, min 28)</label><input type='number' min='28' max='90' class='w80' value='" + state.dureeMatch + "' onchange=\"App.setNum('dureeMatch',this.value)\"></div>" +
+      "<div><label>Marge de sécurité par match (min, 0–20)</label><input type='number' min='0' max='20' class='w80' value='" + state.marge + "' onchange=\"App.setNum('marge',this.value)\"></div>" +
+      '<div style="font-size:.75rem;color:var(--em);padding-bottom:8px">Repos minimum : ' + REPOS + " min après la fin d'un match · Appel : " + APPEL + " min avant chaque match</div>" +
+      "<div><label>Thème d'affichage</label><select class='w130' onchange=\\\"App.setTheme(this.value)\\\">" +
+        "<option value='classique' " + (state.theme === "classique" ? "selected" : "") + ">Classique (vert)</option>" +
+        "<option value='bad18' " + (state.theme === "bad18" ? "selected" : "") + ">Bad18 (rouge et noir)</option>" +
+      "</select></div></div>" +
+      "<p style='font-size:.72rem;color:var(--em);margin:6px 0 0'>La marge de sécurité est ajoutée à chaque match de l'échéancier théorique : si un match réel dépasse sa durée prévue (jusqu'à cette marge), les matchs suivants restent à l'heure et le repos réel ne descend jamais sous " + REPOS + " min. Au-delà, le respect du repos passe avant l'heure affichée : les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</p>" +
+      "<label style='display:flex;gap:8px;margin:12px 0 0;cursor:pointer;font-size:.85rem;color:var(--em-d)'><input type='checkbox' style='width:auto' " + (state.combosTox ? "checked" : "") + " onchange=\"App.setCombosTox(this.checked)\"><span><b>Autoriser les combinaisons toxiques</b> — par défaut, un joueur/paire n'est pas inscrit sur deux familles le même jour (ex. simple <i>et</i> mixte) : aucun chevauchement possible. Cochez cette option seulement si le dimensionnement du tournoi permet de telles combinaisons : l'échéancier sérialise alors les familles dans chaque journée (simples, puis mixte, puis doubles), pour qu'un joueur/paire ne soit jamais attendu sur deux familles à la fois.</span></label>" +
+      "<p style='font-size:.75rem;color:var(--em);margin:12px 0 0'><b>Demi-finales et finales en fin de journée</b> : cette option se règle désormais pour chaque jour (case à cocher dans la carte du jour ci-dessus).</p>" +
+    "</div>" +
+    estimationCard() +
+    "<h3>📋 Tableaux (discipline × classement)</h3>" +
+    '<div class="grid2" style="grid-template-columns:1fr;margin:8px 0">' + state.tabs.map(tabCard).join("") + "</div>" +
+    '<button class="btn btn-o" onclick="App.ajoutTab()">＋ Ajouter un tableau</button>' +
+    '<div style="height:12px"></div>' +
+    '<button class="btn" style="width:100%;padding:14px;font-size:1rem" onclick="App.generer()">Générer l\'échéancier 🏸</button>' +
+  "</div>";
+}
+
+/* ---------- estimation de capacité ---------- */
+function estimationCard() {
+  const joursKeys = Object.keys(state.jours);
+  const daysConf = joursKeys.filter((j) => state.jours[j].actif);
+  const dureeJour = (j) => {
+    const J = state.jours[j];
+    return dureeCalc2(
+      J.dureeMatch !== undefined && J.dureeMatch !== "" ? J.dureeMatch : state.dureeMatch,
+      J.marge !== undefined && J.marge !== "" ? J.marge : state.marge
+    );
+  };
+  const capJour = (j) => {
+    const J = state.jours[j];
+    const terr = Math.max(1, Math.floor(+J.terrains) || 1);
+    const pd = toMin(J.pauseDebut, null), pf = toMin(J.pauseFin, null);
+    const pause = pd !== null && pf !== null && pf > pd ? pf - pd : 0;
+    const minutes = Math.max(0, toMin(J.fin, 18 * 60) - toMin(J.debut, 9 * 60) - pause);
+    return Math.floor(minutes / dureeJour(j) * terr);
+  };
+  const besoinFixe = {};
+  let besoinDeux = 0, besoinTotal = 0;
+  state.tabs.forEach((t) => {
+    const b = buildTab(t, 0);
+    const n = b.poolMs.length + b.playedFinals.length;
+    besoinTotal += n;
+    if (joursKeys.indexOf(t.jour) >= 0) besoinFixe[t.jour] = (besoinFixe[t.jour] || 0) + n;
+    else besoinDeux += n;
+  });
+  const capTotal = joursKeys.reduce((s, j) => s + (state.jours[j].actif ? capJour(j) : 0), 0);
+  const rows = joursKeys.map((j) => {
+    const cap = capJour(j);
+    const besoin = besoinFixe[j] || 0;
+    const marge = cap - besoin;
+    const cell = state.jours[j].actif
+      ? (marge >= 0 ? "<span style='color:var(--em-d);font-weight:700'>✓ +" + marge + "</span>"
+                     : "<span style='color:#b91c1c;font-weight:700'>⚠ " + marge + "</span>")
+      : "<span class='mut'>—</span>";
+    return "<tr><td style='font-weight:600'>" + j + (state.jours[j].actif ? "" : " (inactif)") + "</td><td class='mono'>" + (state.jours[j].actif ? cap : "—") + "</td><td class='mono'>" + (besoin || "—") + "</td><td class='mono' style='color:var(--em)'>" + besoinDeux + "</td><td class='mono'>" + cell + "</td></tr>";
+  }).join("");
+  const builtAll = state.tabs.map((t, k) => buildTab(t, k));
+  const cuts = cutsDeuxJours(builtAll, state.jours, daysConf.length ? dureeJour(daysConf[0]) : dureeCalc());
+  const cutTxt = builtAll.filter((b) => cuts[b.tid]).map((b) => esc(b.label) + " : jour 2 à partir des " + cuts[b.tid].label.toLowerCase()).join(" · ");
+  return '<div class="card" style="margin-bottom:16px"><h3>📊 Estimation de capacité (matchs jouables)</h3>' +
+    '<table><thead><tr><th>Jour</th><th>Capacité</th><th>Besoin fixe</th><th>Les deux jours</th><th>Marge</th></tr></thead><tbody>' + rows + "</tbody></table>" +
+    '<p style="font-size:.75rem;color:var(--em);margin:8px 0 0">Capacité d\'un jour = terrains × (horaire ouvert ÷ durée de match). Besoin total : <b>' + besoinTotal + "</b> matchs (poules + tableaux finaux), dont <b>" + besoinDeux + "</b> à répartir sur les deux jours, pour une capacité totale de <b>" + capTotal + "</b> matchs. Capacité théorique maximale — l'ordonnancement réel (repos de " + REPOS + " min, alternance) peut en jouer un peu moins.</p>" +
+    (cutTxt ? '<p style="font-size:.75rem;color:var(--em-d);margin:6px 0 0">🔀 Tableaux sur deux jours — ' + cutTxt + " (décision automatique selon la capacité du jour 1).</p>" : "") +
+    "</div>";
+}
+
+/* ---------- rendu : échéancier ---------- */
+function renderTournoi() {
+  // W.O. (forfaits) cochés en direct : exclus de la planification
+  const plan = computePlan(state.tabs, state.jours, state.dureeMatch, state.marge, state.combosTox, state.finalesFin,
+    new Set(Object.keys(state.wf).filter((k) => state.wf[k])));
+  // durée effective d'un match : celle du jour de sa planification, sinon commune
+  const mduree = (m) => (m.duree !== undefined ? m.duree : dureeCalc());
+  // pause déjeuner formatée du jour (null = pas de pause définie)
+  const pauseJour = (day) => {
+    const pd = toMin(state.jours[day].pauseDebut, null), pf = toMin(state.jours[day].pauseFin, null);
+    return pd !== null && pf !== null && pf > pd ? fmtTime(pd) + " → " + fmtTime(pf) : null;
+  };
+  const forfJour = (day) => plan.forfaits.filter((m) => m.day === day).length;
+  const statsJour = plan.days.map((day) => {
+    const ms = plan.perDay[day] || [];
+    const derniereFin = ms.length ? Math.max.apply(null, ms.map((m) => m.time + mduree(m))) : 0;
+    const fin = toMin(state.jours[day].fin, 18 * 60);
+    const debut = toMin(state.jours[day].debut, 9 * 60);
+    const at = plan.attentes.filter((a) => a.day === day);
+    return {
+      day, nb: ms.length, derniereFin, fin, debut,
+      depasse: ms.length > 0 && derniereFin > fin,
+      marge: fin - derniereFin,
+      attMax: at.length ? Math.max(...at.map((a) => a.w)) : 0,
+      attMoy: at.length ? Math.round(at.reduce((s, a) => s + a.w, 0) / at.length) : 0,
+      att60: ms.filter((m) => m.att !== null && m.att >= 60).length,
+      term: ms.filter((m) => state.finis[m.key]).length,
+      wo: forfJour(day),
+    };
+  });
+  const total = plan.sched.length;
+  const att60 = plan.sched.filter((m) => m.att !== null && m.att >= 60).length;
+  const attMaxAll = plan.sched.filter((m) => m.att !== null).reduce((s, m) => Math.max(s, m.att), 0);
+  const labels = { synthese: "📊 Synthèse", planning: "🗓️ Planning", classement: "🏷️ Par classement" };
+  const tabsBtns = [["synthese", labels.synthese], ["planning", labels.planning], ["classement", labels.classement]]
+    .concat(plan.built.map((b) => ["t" + b.tid, b.label]));
+  let body = "";
+  if (state.vueTab === "synthese") body = viewSynthese(plan, statsJour);
+  else if (state.vueTab === "classement") body = viewClassement(plan);
+  else if (/^t[0-9]+$/.test(state.vueTab) && plan.built[+state.vueTab.slice(1)]) body = viewTab(plan, +state.vueTab.slice(1));
+  else body = viewPlanning(plan);
+  // bandeau W.O. : chaque forfait signalé, annulable
+  const woBandeau = plan.forfaits.length
+    ? '<div class="warn" style="margin-bottom:10px;background:#fffbeb;border-color:#fde68a;color:#92400e"><b>W.O. enregistrés :</b> ' +
+      plan.forfaits.map((m) =>
+        "<span class='wochip'>" + esc(plan.built[m.tid].label) + " · " + tourLabel(m, plan.built[m.tid]) +
+        " <button class='no-print' style='color:#b91c1c;font-weight:700;cursor:pointer;background:none;border:none' title=\"annuler le W.O.\" onclick=\"App.setForfait('" + m.key + "',false)\">✕</button></span>"
+      ).join(" ") + "</div>"
+    : "";
+  return '<div style="max-width:1100px;margin:0 auto">' +
+    '<div class="row no-print" style="justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
+      "<h1>🏸 Échéancier du week-end</h1>" +
+      '<div class="row" style="gap:6px;flex-wrap:wrap">' +
+        "<button class=\"btn\" style=\"" + (state.live ? "background:#dc2626;color:#fff;border-color:#dc2626" : "color:#b91c1c;border-color:#fecaca") + "\" title=\"cochez les matchs terminés et signalez les W.O. — la journée se replanifie automatiquement\" onclick=\"App.setLive(" + !state.live + ")\">" + (state.live ? "⏺️ Direct actif" : "⏺️ Suivi en direct") + "</button>" +
+        '<button class="btn btn-o" onclick="App.exportCsv()">⬇ Export CSV</button>' +
+        '<button class="btn btn-o" title="imprime la vue courante ou enregistrez-la en PDF" onclick="window.print()">🖨️ PDF / Imprimer</button>' +
+        '<button class="btn btn-o" onclick="App.backToConfig()">⚙️ Modifier la configuration</button>' +
+      "</div>" +
+    "</div>" +
+    (state.live
+      ? '<div class="no-print warn" style="margin-bottom:10px;background:#fef2f2;border-color:#fecaca;color:#991b1b">⏺️ <b>Suivi en direct</b> — cochez ✓ un match terminé dans le planning ; <b>W.O.</b> signale un forfait : le match ne consomme pas de terrain et la journée est replanifiée automatiquement.</div>'
+      : "") +
+    woBandeau +
+    '<div class="stats" style="margin-bottom:10px">' +
+      statsJour.map((s) => '<div class="stat"><b>' + (s.nb ? fmtTime(s.derniereFin) : "—") + "</b><span>" + s.day + " — " + s.nb + " matchs (" + fmtTime(s.debut) + " → " + fmtTime(s.fin) + ")</span><i>attente max " + s.attMax + " min · moy " + s.attMoy + " min" + (s.att60 > 0 ? " · ⚠️ " + s.att60 + " ≥ 1h" : "") + "</i><i>" +
+        (pauseJour(s.day) ? "🍽️ Pause Déjeuner/Remise médailles : " + pauseJour(s.day) : "") +
+        (state.live
+          ? (pauseJour(s.day) ? " · " : "") + "✔ " + s.term + "/" + s.nb + " terminés" + (s.wo > 0 ? " · " + s.wo + " W.O." : "")
+          : (s.wo > 0 ? (pauseJour(s.day) ? " · " : "") + s.wo + " W.O." : "")) +
+        "</i></div>").join("") +
+      '<div class="stat"><b>' + total + "</b><span>matchs planifiés au total</span>" + (plan.forfaits.length ? "<i style='color:#b45309'>+ " + plan.forfaits.length + " W.O. non joués</i>" : "") + "</div>" +
+    "</div>" +
+    statsJour.filter((s) => s.depasse).map((s) =>
+      '<div class="warn" style="margin-bottom:10px">⚠️ ' + s.day + " : l'horaire de fin a dû être modifié — tous les matchs sont planifiés, le dernier finissant à " + fmtTime(s.derniereFin) + " au lieu de " + fmtTime(s.fin) + " (+" + (-s.marge) + " min). Aucun match n'a été supprimé : ajoutez un terrain, élargissez l'horaire ou basculez des tableaux sur l'autre jour.</div>"
+    ).join("") +
+    (plan.unscheduled.length
+      ? '<div class="warn" style="margin-bottom:10px">⚠️ ' + plan.unscheduled.length + " match(s) non planifiés (plus de créneau sur le(s) jour(s) autorisé(s)) : " + [...new Set(plan.unscheduled.map((m) => plan.built[m.tid].label))].join(", ") + ".</div>"
+      : "") +
+    (statsJour.every((s) => !s.depasse) && !plan.unscheduled.length
+      ? '<div class="ok" style="margin-bottom:10px">✅ Tous les matchs tiennent dans les horaires de chaque jour, avec ' + REPOS + " min de repos respecté.</div>"
+      : "") +
+    (att60 > 0
+      ? '<div class="warn" style="margin-bottom:10px;background:#fffbeb;border-color:#fde68a;color:#92400e">⏱️ ' + att60 + " match(s) avec une attente estimée ≥ 1h (maximum " + attFmt(attMaxAll) + "). L'ordonnancement sert déjà en priorité les joueurs/paires les plus attendus ; pour réduire ces attentes : ajouter un terrain, élargir l'horaire, ou répartir les tableaux sur les deux jours.</div>"
+      : '<div class="ok" style="margin-bottom:10px">✅ Aucune attente estimée ne dépasse 1h — enchaînements optimisés.</div>') +
+    '<div class="tabs no-print" style="margin-bottom:14px">' +
+      tabsBtns.map(([k, l]) => '<button class="tab ' + (state.vueTab === k ? "on" : "") + '" onclick="App.setVueTab(\'' + k + "')\">" + esc(l) + "</button>").join("") +
+    "</div>" +
+    '<div class="card" style="margin-bottom:14px;font-size:.75rem;color:var(--em)"><b style="color:var(--em-d)">⏱ ATTENTE depuis le tour précédent</b> — attente totale depuis la fin du match précédent du joueur ou de la paire le plus attendu du match, repos de ' + REPOS + " min inclus : " +
+      ATT_STEPS.map((s) => "<span class='attb' style='background:" + s.bg + ";color:" + s.fg + "'>" + s.lbl + "</span>").join(" ") +
+      " — plus c'est vert, plus le joueur/la paire enchaîne vite après son tour précédent ; orange à rouge = longue attente. Objectif : toutes les attentes < 1h. Colonne Attente : « — » = premier tour du joueur/de la paire (attente non applicable), le tour du match est indiqué uniquement dans la colonne Tour. Les horaires sont donnés à titre indicatif : en cas de dépassement réel, le repos de " + REPOS + " min passe avant l'heure affichée — les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</div>" +
+    body +
+    "<footer>" + total + " matchs planifiés — appel " + APPEL + " min avant le match, " + REPOS + " min de repos minimum après le dernier match, alternance optimisée pour minimiser l'attente (objectif < 1h). 2 sets gagnants de 15 points, écart de 2, plafond 21, échange de côté à 8. Horaires donnés à titre indicatif — le repos réel ne descend jamais sous " + REPOS + " min sans l'accord du juge-arbitre ou des joueurs/paires.</footer>" +
+  "</div>";
+}
+
+function viewPlanning(plan) {
+  return plan.days.map((day) => {
+    const ms = (plan.perDay[day] || []).slice().sort((a, b) => a.time - b.time || a.court - b.court);
+    const woDay = plan.forfaits.filter((m) => m.day === day).length;
+    if (!ms.length && !woDay) return "";
+    // pause Déjeuner/Remise médailles du jour : bandeau inséré à sa place
+    // chronologique — aucun match n'étant planifié pendant la pause, il
+    // apparaît juste avant le premier match de la reprise
+    const pd = toMin(state.jours[day].pauseDebut, null);
+    const pf = toMin(state.jours[day].pauseFin, null);
+    const hasPause = pd !== null && pf !== null && pf > pd;
+    const nCols = state.live ? 8 : 7;
+    const pauseRow = "<tr class='prow'><td colspan='" + nCols + "'>🍽️ Pause Déjeuner/Remise médailles · " + fmtTime(pd) + " → " + fmtTime(pf) + " — aucun match pendant la pause</td></tr>";
+    let pausePending = hasPause;
+    const rows = [];
+    ms.forEach((m) => {
+      if (pausePending && m.time >= pf) { pausePending = false; rows.push(pauseRow); }
+      const b = plan.built[m.tid];
+      const fini = !!state.finis[m.key];
+      const rencontre = m.phase === "poule"
+        ? esc(m.a) + " <span style='color:#6ee7b7'>vs</span> " + esc(m.b)
+        : "<span style='color:var(--em-d)'>" + esc(qualLabel(m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(qualLabel(m.b)) + "</span>";
+      const phase = tourLabel(m, b);
+      const direct = state.live
+        ? "<td class='no-print'><button class='live-btn" + (fini ? " live-done" : "") + "' title=\"marquer le match comme terminé\" onclick=\"App.toggleFini('" + m.key + "')\">✓</button> <button class='live-btn live-wo' title=\"forfait (walk-over) : le match ne se joue pas, le créneau est libéré et la journée se replanifie\" onclick=\"App.setForfait('" + m.key + "',true)\">W.O.</button></td>"
+        : "";
+      rows.push("<tr" + (fini ? " style='opacity:.5'" : "") + "><td class='mono appel'>" + (fini ? "<s>" + fmtTime(m.appel) + "</s>" : fmtTime(m.appel)) + "</td><td class='mono'>" + (fini ? "<s>" + fmtTime(m.time) + "</s>" : fmtTime(m.time)) + "</td><td><span class='court'>T" + (m.court + 1) + "</span></td><td><span class='badge b-" + b.tab.disc + "'>" + esc(b.label) + "</span></td><td style='font-size:.72rem;color:var(--em)'>" + phase + "</td><td>" + rencontre + "</td><td>" + attBadgeHtml(m.att) + "</td>" + direct + "</tr>");
+    });
+    if (pausePending) rows.push(pauseRow);
+    return '<div class="dayhead">📅 ' + day + " — " + ms.length + " matchs" + (woDay > 0 ? " · " + woDay + " W.O." : "") + (state.live ? " · ✔ " + ms.filter((m) => state.finis[m.key]).length + "/" + ms.length + " terminés" : "") + '</div><div class="card"><table><thead><tr><th>Appel</th><th>Début</th><th>Terrain</th><th>Tableau</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th>' + (state.live ? "<th class='no-print'>Direct</th>" : "") + "</tr></thead><tbody>" + rows.join("") + "</tbody></table></div>";
+  }).join("");
+}
+
+function viewSynthese(plan, statsJour) {
+  const mduree = (m) => (m.duree !== undefined ? m.duree : dureeCalc());
+  const rows = plan.built.map((b) => {
+    const ms = plan.sched.filter((m) => m.tid === b.tid);
+    const nbForf = plan.forfaits.filter((m) => m.tid === b.tid).length;
+    const totalM = b.poolMs.length + b.playedFinals.length;
+    if (!ms.length) {
+      return "<tr><td><span class='badge b-" + b.tab.disc + "'>" + esc(b.label) + "</span></td><td class='mono'>" + b.n + "</td><td colspan='7' style='color:#b91c1c'>aucun match planifié (jour inactif ?) — " + (totalM - nbForf) + " matchs en attente" + (nbForf > 0 ? " · " + nbForf + " W.O." : "") + "</td></tr>";
+    }
+    const st = attStats(ms);
+    const prem = Math.min.apply(null, ms.map((m) => m.appel));
+    const dern = Math.max.apply(null, ms.map((m) => m.time + mduree(m)));
+    const joursAbbr = [...new Set(ms.map((m) => m.day))].map((d) => d.slice(0, 3) + ".").join(" + ");
+    // fin estimée du tableau : jour et heure du dernier match, comparés à
+    // l'horaire officiel de ce jour
+    let dernM = { day: ms[ms.length - 1].day, end: -1e9 };
+    ms.forEach((m) => { if (m.time + mduree(m) > dernM.end) dernM = { day: m.day, end: m.time + mduree(m) }; });
+    const finOff = toMin(state.jours[dernM.day].fin, 18 * 60);
+    const dep = dernM.end > finOff ? Math.round(dernM.end - finOff) : 0;
+    return "<tr><td><span class='badge b-" + b.tab.disc + "'>" + esc(b.label) + "</span></td><td class='mono'>" + b.n + "</td><td style='font-size:.75rem'>" +
+      (b.suisse ? "<span style='color:var(--em)'>ronde suisse (" + b.rondes + ")</span>" : b.P === 0 ? "<span style='color:var(--em)'>élimination directe</span>" : esc(b.sizes.join(" + ")) + " <span class='mut'>(" + b.P + ")</span>") + "</td><td style='font-size:.75rem'>" +
+      (b.suisse ? (b.seule ? "classement final" : b.Q + " qualifié(s)") : b.P === 0 ? "—" : b.P === 1 ? "poule unique" : b.Q + "/poule → " + b.P * b.Q + " qual.") + "</td><td style='font-size:.75rem;color:var(--em)'>" + esc(parcoursStr(b, plan.cuts[b.tid])) + "</td><td class='mono'>" +
+      ms.length + (nbForf > 0 ? " <span style='color:#b45309;font-size:.7rem'>· " + nbForf + " W.O.</span>" : "") + (ms.length + nbForf < totalM ? " <span style='color:#b91c1c;font-size:.7rem'>(+" + (totalM - ms.length - nbForf) + " non planifiés)</span>" : "") + "</td><td class='mono' style='font-size:.72rem'>" +
+      joursAbbr + " · " + fmtTime(prem) + " → " + fmtTime(dern) + "</td><td class='mono' style='font-size:.72rem'>" +
+      "<span style='text-transform:capitalize'>" + dernM.day + "</span> " + fmtTime(dernM.end) + (dep > 0 ? " <span style='color:#b91c1c;font-weight:700' title=\"fin estimée au-delà de l'horaire officiel du jour\">⚠️ +" + dep + " min</span>" : "") + "</td><td>" + attBadgeHtml(st.max) + "</td></tr>";
+  }).join("");
+  const dayCards = statsJour.map((s) => '<div class="card"><h4 style="text-transform:capitalize">' + s.day + "</h4>" +
+    "<div style='font-size:.8rem;color:var(--em-d)'>" + s.nb + " matchs · " + fmtTime(s.debut) + " → " + (s.nb ? fmtTime(s.derniereFin) : "—") +
+    (s.depasse ? " <b style='color:#b91c1c'>⚠️ horaire de fin modifié : +" + (-s.marge) + " min</b>" : "") + "</div>" +
+    "<div style='font-size:.7rem;color:#94a3b8'>attente max " + s.attMax + " min · moyenne " + s.attMoy + " min</div></div>").join("");
+  return '<div class="card" style="margin-bottom:14px"><h3>📋 Structure des tableaux — vue d\'ensemble</h3>' +
+    '<div style="overflow-x:auto"><table><thead><tr><th>Tableau</th><th>Inscrits</th><th>Poules</th><th>Sortants</th><th>Parcours</th><th>Matchs</th><th>Horaire</th><th>Fin estimée</th><th>Attente max</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+    "<p style=\"font-size:.72rem;color:var(--em);margin:8px 0 0\">Parcours : « (J2) » marque le tour où le tableau reprend le dimanche. Les poules sont composées automatiquement pour minimiser les matchs ; au-delà de 24 inscrits, élimination directe. Alternative par tableau : la ronde suisse (personne n'est éliminé, chaque inscrit joue une fois par ronde, classement final aux victoires).</p></div>" +
+    '<div class="grid2">' + dayCards + "</div>";
+}
+
+function viewClassement(plan) {
+  const mduree = (m) => (m.duree !== undefined ? m.duree : dureeCalc());
+  const blocks = plan.built.map((b) => {
+    const ms = plan.sched.filter((m) => m.tid === b.tid).sort((x, y) => x.time - y.time);
+    if (!ms.length) return "";
+    const st = attStats(ms);
+    const prem = Math.min.apply(null, ms.map((m) => m.appel));
+    const dern = Math.max.apply(null, ms.map((m) => m.time + mduree(m)));
+    const rows = ms.map((m) => {
+      const rencontre = m.phase === "poule"
+        ? esc(m.a) + " <span style='color:#6ee7b7'>vs</span> " + esc(m.b)
+        : "<span style='color:var(--em-d)'>" + esc(qualLabel(m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(qualLabel(m.b)) + "</span>";
+      return "<tr><td style='font-size:.72rem;font-weight:700;color:var(--em-d)'>" + m.day + "</td><td class='mono appel'>" + fmtTime(m.appel) + "</td><td class='mono'>" + fmtTime(m.time) +
+        "</td><td><span class='court'>T" + (m.court + 1) + "</span></td><td style='font-size:.72rem;color:var(--em)'>" +
+        tourLabel(m, b) + "</td><td>" + rencontre + "</td><td>" + attBadgeHtml(m.att) + "</td></tr>";
+    }).join("");
+    return '<div class="card" style="margin-bottom:14px"><h3><span class="badge b-' + b.tab.disc + '">' + esc(b.label) + "</span> <span style=\"font-weight:400;font-size:.72rem;color:var(--em)\">" +
+      ms.length + " matchs · appel " + fmtTime(prem) + " → fin " + fmtTime(dern) + " · attente max " + attFmt(st.max) + " · moy " + attFmt(st.moy) + "</span></h3>" +
+      "<table><thead><tr><th>Jour</th><th>Appel</th><th>Début</th><th>Terrain</th><th title='numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)'>Tour</th><th>Rencontre</th><th title='attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée'>Attente</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+  }).join("");
+  return "<p style='font-size:.72rem;color:var(--em);margin:0 0 12px'>Matchs regroupés par classement (discipline × classement), dans l'ordre chronologique. Le terrain de chaque match reste indiqué, mais la répartition par terrain n'a pas de sens organisationnel : elle dépend de la durée réelle des matchs.</p>" + blocks;
+}
+
+function viewTab(plan, tid) {
+  const b = plan.built[tid];
+  const ms = plan.sched.filter((m) => m.tid === tid).sort((x, y) => x.time - y.time);
+  const nbForf = plan.forfaits.filter((m) => m.tid === tid).length;
+  const pools = b.suisse
+    ? '<div class="poolbox"><b style="color:var(--em-d)">' + b.n + " " + b.unit + '</b><br><span style="color:var(--em)">ronde suisse : ' + b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + (b.n % 2 === 1 ? " · 1 exempt par ronde" : "") + (b.seule ? " · classement final aux victoires" : " · " + b.Q + " qualifié(s) en élimination directe") + "</span>" +
+      (b.exempts && b.exempts.length
+        ? '<br><span style="color:var(--em)" title="un exempt ne joue pas cette ronde : il est réintégré à la ronde suivante"><b>Exempts :</b> ' + b.exempts.map(function (e) { return "Ronde " + (e.r + 1) + " → " + esc(b.nom(e.j)); }).join(" · ") + "</span>"
+        : "") + "</div>"
+    : b.pools.map((ids, pi) =>
+    '<div class="poolbox"><b style="color:var(--em-d)">Poule ' + (pi + 1) + "</b><br><span style='color:var(--em)'>" + ids.map((i) => esc(b.nom(i))).join(", ") + "</span></div>").join("");
+  const rows = ms.map((m) => {
+    const rencontre = m.phase === "poule"
+      ? esc(m.a) + " <span style='color:#6ee7b7'>vs</span> " + esc(m.b)
+      : "<span style='color:var(--em-d)'>" + esc(qualLabel(m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(qualLabel(m.b)) + "</span>";
+    return "<tr><td style='font-size:.72rem;font-weight:700;color:var(--em-d)'>" + m.day + "</td><td class='mono appel'>" + fmtTime(m.appel) + "</td><td class='mono'>" + fmtTime(m.time) + "</td><td><span class='court'>T" + (m.court + 1) + "</span></td><td style='font-size:.72rem;color:var(--em)'>" + tourLabel(m, b) + "</td><td>" + rencontre + "</td><td>" + attBadgeHtml(m.att) + "</td></tr>";
+  }).join("");
+  return '<div class="card" style="margin-bottom:14px"><h3>' + esc(b.label) + " — " + b.n + " " + b.unit + ", " + (b.suisse ? b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " suisse" + (b.rondes > 1 ? "s" : "") + (b.seule ? " — classement final aux victoires puis départages" : " — " + b.Q + " qualifié(s) → élimination directe") : b.P === 0 ? "élimination directe" : b.P === 1 ? "poule unique — classement final de la poule, sans suite en élimination directe" : b.P + " poule(s), " + b.Q + " sortant(s)/poule") + ", " + ms.length + " matchs planifiés" + (nbForf > 0 ? " · " + nbForf + " W.O." : "") +
+    (plan.cuts[tid] ? " <span style='font-weight:400;font-size:.75rem;color:var(--em)'>· jour 2 : à partir des " + plan.cuts[tid].label.toLowerCase() + "</span>" : "") + "</h3>" +
+    '<div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">' + pools + "</div></div>" +
+    '<div class="card"><table><thead><tr><th>Jour</th><th>Appel</th><th>Début</th><th>Terrain</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th></tr></thead><tbody>' + rows + "</tbody></table></div>";
+}
+
+/* ---------- actions ---------- */
+Object.assign(App, {
+  generer: () => { state.phase = "tournoi"; state.vueTab = "synthese"; render(true); },
+  backToConfig: () => { state.phase = "config"; render(true); },
+  setVueTab: (k) => { state.vueTab = k; render(true); },
+  setJour: (j, f, v) => { state.jours[j][f] = v; render(); },
+  setJourNum: (j, f, v) => { state.jours[j][f] = v === "" ? "" : parseInt(v, 10); },
+  ajoutJour: () => {
+    const keys = Object.keys(state.jours);
+    if (keys.length >= 4) return;
+    let n = 3;
+    while (state.jours["jour " + n] !== undefined) n++;
+    state.jours["jour " + n] = { actif: true, terrains: 8, debut: "08:30", fin: "18:00", dureeMatch: "", marge: "", finalesFin: false };
+    render();
+  },
+  supprJour: (j) => { delete state.jours[j]; render(); },
+  setNum: (f, v) => { state[f] = v === "" ? "" : parseInt(v, 10); },
+  setCombosTox: (v) => { state.combosTox = !!v; render(); },
+  setTheme: (v) => { state.theme = v === "bad18" ? "bad18" : "classique"; render(); },
+  setTab: (i, f, v) => { state.tabs[i][f] = v; render(); },
+  setTabSilent: (i, f, v) => { state.tabs[i][f] = v; },
+  setTabNum: (i, f, v) => { state.tabs[i][f] = v === "" ? "" : parseInt(v, 10); render(); },
+  ajoutTab: () => { state.tabs.push({ disc: "SM", classement: "", nb: 9, qualifs: 2, jour: "samedi", format: "", rondes: "" }); render(); },
+  supprTab: (i) => { state.tabs.splice(i, 1); render(); },
+  setLive: (v) => { state.live = !!v; render(); },
+  toggleFini: (k) => { state.finis[k] = !state.finis[k]; render(); },
+  setForfait: (k, v) => { state.wf[k] = !!v; render(); },
+  exportCsv: () => {
+    const plan = computePlan(state.tabs, state.jours, state.dureeMatch, state.marge, state.combosTox, state.finalesFin,
+      new Set(Object.keys(state.wf).filter((k) => state.wf[k])));
+    const rows = [["Jour", "Appel", "Debut", "Terrain", "Tableau", "Tour", "Rencontre", "Attente"]];
+    plan.days.forEach((day) => {
+      (plan.perDay[day] || []).slice().sort((a, b) => a.time - b.time || a.court - b.court).forEach((m) => {
+        rows.push([day, fmtTime(m.appel), fmtTime(m.time), "T" + (m.court + 1), plan.built[m.tid].label,
+          tourLabel(m, plan.built[m.tid]),
+          m.phase === "poule" ? m.a + " vs " + m.b : qualLabel(m.a) + " vs " + qualLabel(m.b),
+          m.att === null || m.att === undefined ? "" : attFmt(m.att)]);
+      });
+    });
+    const csv = "\ufeff" + rows.map((r) => r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(";")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "echancier-badminton.csv";
+    // iOS Safari exige que l'ancre soit dans le document pour déclencher le téléchargement
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  },
+});
+
+function render(top) {
+  // thème d'affichage : classe sur <body> (classique vert / Bad18 rouge et noir)
+  // « top » : true → remonter en haut (changement de vue) ; sinon conserver la
+  // position de défilement (saisie dans le formulaire de configuration)
+  const sc = top ? 0 : (window.scrollY || 0);
+  document.body.classList.toggle("theme-bad18", state.theme === "bad18");
+  document.getElementById("root").innerHTML = state.phase === "config" ? renderConfig() : renderTournoi();
+  window.scrollTo(0, sc);
+}
+
+render();
+</script>
+</body>
+</html>
