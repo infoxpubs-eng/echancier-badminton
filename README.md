@@ -76,3 +76,9 @@ node tests/metrics.js               # métriques de référence (régression)
 
 Voir `tests/README.md` pour les dépendances de `web-check.js` et le script
 de régénération.
+
+## Licence
+
+© 2026 Alexandre Ansault — [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/deed.fr) :
+réutilisation et adaptation autorisées à des fins **non commerciales**, avec
+crédit de l'auteur. Toute autre utilisation requiert une autorisation écrite.
