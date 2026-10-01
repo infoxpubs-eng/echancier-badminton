@@ -229,6 +229,40 @@ même pour les 1/8 qui doivent être joués avant les 1/4 ».
 Aucun changement de planification ni de données : métriques
 inchangées (att60=83, attMax=112, attMoy=54 ; 350 matchs).
 
+## 2026-10-01 — Ordre strict des tours d'un même tableau (v1.6)
+
+Décision du juge-arbitre (suite du signalement v1.5.1) : « il faut une
+limite stricte pour un même tableau/classement, sinon certains joueurs
+ne pourront pas jouer les 1/2 car ils n'auront pas encore disputé les
+1/4 ».
+
+1. **Barrière stricte entre tours** : dans un même tableau final, un
+   tour ne démarre plus « dès que ses sources sont terminées » — il
+   attend que **tous les matchs du tour précédent du tableau soient
+   terminés**. Les 1/8 se jouent avant les 1/4, les 1/4 avant les 1/2,
+   les 1/2 avant la finale, sans aucun chevauchement de tours dans un
+   même tableau. Le parallélisme reste possible **entre tableaux
+   différents** (les joueurs ne se rencontrent pas).
+2. **1er tour ancré sur la fin des poules** : le premier tour du
+   tableau final ne démarrait qu'une fois tous les matchs de poules
+   *planifiés* — il pouvait donc démarrer pendant que la dernière
+   ronde de poules se jouait. Il démarre désormais après la **fin
+   effective de la dernière poule/ronde du tableau + repos** : un
+   qualifié a forcément terminé tous ses matchs de poule avant le
+   premier tour. La règle, déjà appliquée aux rondes suisses, est
+   unifiée pour tous les formats.
+3. **Tests étendus** (`tests/byes-test.js`) : ordre strict vérifié sur
+   tous les tableaux et tous les tours du tournoi témoin (demi après
+   la fin du dernier quart du tableau, 1er tour après fin des poules
+   + repos), en plus des contrôres v1.5.1.
+4. **Nouvelles métriques de référence** (base 350 matchs) :
+   att60 = 75 · attente max = 112 min · moyenne = 51 min ;
+   « demis et finales en fin de journée » : 77/112/52. Attente max
+   poules → demis (finales fin de journée) : 132 min (cible ≤ 150).
+   L'ordre strict ne dégrade pas les attentes : au contraire, la
+   moyenne baisse (54 → 51 min) car les tours regroupés réduisent
+   les attentes résiduelles.
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :

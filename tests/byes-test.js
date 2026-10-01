@@ -13,7 +13,12 @@
    4. invariant général : chaque match de tableau final démarre ≥ fin +
       repos de chacune de ses sources-fid (forfaits inclus, récursivement) ;
    5. dénombrement des exempts = paperRounds[0] − roundsCount[0] = nombre
-      de byes du 1er tour. */
+      de byes du 1er tour ;
+   v1.6 — ordre strict des tours d'un même tableau (exigence juge-arbitre) :
+   6. un tour r ≥ 1 ne démarre qu'après la FIN de TOUS les matchs du tour
+      r-1 du même tableau (les 1/8 avant les 1/4, les 1/4 avant les 1/2) ;
+   7. le 1er tour ne démarre qu'après la fin de toutes les poules/rondes
+      du tableau + repos (plus de quart pendant la dernière ronde). */
 const fs = require("fs");
 const src = fs.readFileSync(require("path").join(__dirname, "..", "src", "badminton-echancier.md"), "utf8");
 const lines = src.split("\n");
@@ -84,12 +89,15 @@ const harness = engine + `
   ok("demi T2-1 après fin + repos de son quart T1-1", mDemi1.time >= mQuart1.time + mduree(mQuart1) + REPOS, mDemi1.time + " vs " + (mQuart1.time + mduree(mQuart1) + REPOS));
   ok("demi T2-2 après fin + repos de son quart T1-4", mDemi2.time >= mQuart4.time + mduree(mQuart4) + REPOS, "");
   ok("les deux quarts se jouent avant la FINALE", plan.sched.find((m) => m.tid === 0 && m.fid === "T3-1").time >= Math.max(mDemi1.time + mduree(mDemi1), mDemi2.time + mduree(mDemi2)) + REPOS, "");
-  // légimité du parallélisme : la demi T2-1 peut démarrer pendant que le
-  // quart T1-4 (l'autre moitié du bracket) se joue encore — c'est correct,
-  // elle n'en dépend pas
-  const parallelOk = mDemi1.time < mQuart4.time + mduree(mQuart4);
-  console.log("demi T2-1 " + fmtTime(mDemi1.time) + " · quart T1-4 " + fmtTime(mQuart4.time) + "→" + fmtTime(mQuart4.time + mduree(mQuart4)) + (parallelOk ? " — la demi de l'autre moitié joue en parallèle (légitime)" : " — pas de parallélisme ici"));
-  ok("demi T2-1 ne démarre pas avant le DÉBUT du quart T1-4 qui la précède dans l'échéancier ? (info seulement)", true, "");
+  // v1.6 — ordre strict : la demi T2-1 attend désormais la FIN de TOUS
+  // les quarts du tableau (T1-1 à T1-4), même si elle ne dépend que de
+  // T1-1 — plus aucun parallélisme demi/quart dans un même tableau
+  const quartsDM = plan.sched.filter((m) => m.tid === 0 && m.phase === "finale" && m.round === 0);
+  const finQuarts = Math.max(...quartsDM.map((m) => m.time + mduree(m)));
+  console.log("demi T2-1 " + fmtTime(mDemi1.time) + " · dernier quart du tableau DM fini " + fmtTime(finQuarts) + (mDemi1.time >= finQuarts ? " — ordre strict respecté" : " — PARALLÉLISME INTERDIT DÉTECTÉ"));
+  ok("v1.6 : demi T2-1 démarre après la FIN de tous les quarts du tableau DM", mDemi1.time >= finQuarts, "");
+  const poolEndDM = Math.max(...plan.sched.filter((m) => m.tid === 0 && m.phase === "poule").map((m) => m.time + mduree(m)));
+  ok("v1.6 : 1er tour DM démarre après la fin de toutes les poules + repos", mQuart1.time >= poolEndDM + REPOS, mQuart1.time + " vs " + (poolEndDM + REPOS));
 
   /* ---- 4. invariant général sur les sources-fid (forfaits inclus) ---- */
   const feederEndRec = (b, M, fid) => {
@@ -128,6 +136,26 @@ const harness = engine + `
   ok("SM : 4 exempts au 1er tour", (sm.paperRounds[0] || 0) - (sm.roundsCount[0] || 0) === 4, "");
   ok("libellé exempt lisible (pas « Vainqueur T1-2 »)", qualLabel(SM.get("T2-1").b).indexOf("Vainqueur") !== 0 && typeof SM.get("T2-1").b !== "string" ? true : typeof SM.get("T2-1").b !== "string" || qualLabel(SM.get("T2-1").b).indexOf("poule") >= 0, "");
   ok("libellé demi DM sans fantôme", qualLabel(demi1.b).indexOf("Vainqueur") !== 0, qualLabel(demi1.b));
+
+  /* ---- 6-7. v1.6 : ordre strict des tours sur tous les tableaux ---- */
+  plan.built.forEach((b) => {
+    const R = {};
+    plan.sched.forEach((m) => { if (m.tid === b.tid && m.phase === "finale") (R[m.round] = R[m.round] || []).push(m); });
+    Object.keys(R).map(Number).sort((x, y) => x - y).forEach((r) => {
+      if (r === 0) return;
+      const prev = R[r - 1] || [];
+      if (!prev.length) return; // tour précédent joué un autre jour (coupure 2 jours)
+      const prevEnd = Math.max(...prev.map((m) => m.time + mduree(m)));
+      R[r].forEach((m) => ok("ordre strict " + b.label + " : tour " + (r + 1) + " (" + m.fid + ", " + fmtTime(m.time) + ") après la fin du tour " + r + " (" + fmtTime(prevEnd) + ")", m.time >= prevEnd, ""));
+    });
+    const poolMs2 = plan.sched.filter((m) => m.tid === b.tid && m.phase === "poule");
+    if (poolMs2.length) {
+      const pe = Math.max(...poolMs2.map((m) => m.time + mduree(m)));
+      (R[0] || []).forEach((m) => ok("1er tour " + b.label + " (" + m.fid + ", " + fmtTime(m.time) + ") après fin des poules + repos (" + fmtTime(pe + REPOS) + ")", m.time >= pe + REPOS, ""));
+    }
+  });
+  console.log("ordre strict des tours (tous tableaux, tous tours) : " + (fails.length === 0 ? "OK" : "ÉCHECS"));
+
 })();
 `;
 eval(harness);

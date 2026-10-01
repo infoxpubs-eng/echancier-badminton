@@ -433,10 +433,11 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
       : "F" + m.tid + "-" + m.fid;
     m.forfait = forfaits !== undefined && forfaits !== null && typeof forfaits.has === "function" && forfaits.has(m.key);
   });
-  // intercalage : un match de tableau final ne dépend que de ses deux
-  // matchs sources (fin du tour précédent), pas de la fin de tout le
-  // tour — dès que ses sources sont terminées il peut démarrer, même si
-  // d'autres matchs du tour précédent se jouent encore
+  // intercalage : un match de tableau final attend ses deux matchs
+  // sources (fin du tour précédent) ET l'ordre strict des tours du même
+  // tableau : un tour ne démarre que lorsque le tour précédent du
+  // tableau est entièrement terminé (jamais de demi pendant qu'un
+  // quart du même tableau est en jeu — exigence juge-arbitre)
   const finByFid = new Map();
   items.forEach((m) => { if (m.phase !== "poule") finByFid.set(m.tid + "|" + m.fid, m); });
   // jour en cours de planification : une source jouée un AUTRE jour (tableau
@@ -544,9 +545,12 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
       }
       const s = st[m.tid];
       if (s.poolLeft > 0) return Infinity;
-      // ronde suisse + élimination directe : le tableau final ne démarre
-      // qu'après la FIN de la dernière ronde (résultats complets) + repos
-      if (built[m.tid].suisse && m.round === 0) return (s.poolEnd ?? -1e9) + REPOS;
+      // 1er tour du tableau final (qualifiés sortis des poules OU des
+      // rondes suisses) : il ne démarre qu'après la FIN de la dernière
+      // poule/ronde du tableau (résultats complets) + repos — un qualifié
+      // a ainsi forcément terminé TOUS ses matchs de poule avant le 1er
+      // tour (plus de quart qui démarre pendant la dernière ronde)
+      if (m.round === 0) return (s.poolEnd ?? -1e9) + REPOS;
       // option « demis et finales en fin de journée » (propre à chaque jour) :
       // les demis et finales sont tenues en fin de journée, une fois toutes les
       // poules du jour terminées — SAUF si le tableau attendrait plus de 2h30
@@ -570,8 +574,13 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
           }
         }
       }
+      // ordre strict des tours d'un même tableau : le tour r attend que
+      // tous les matchs du tour r-1 du tableau soient planifiés ET
+      // terminés — les 1/8 avant les 1/4, les 1/4 avant les 1/2
+      if ((s.roundLeft[m.round - 1] || 0) > 0) return Infinity;
       const pe = feederEnd(m);
-      return pe === Infinity ? Infinity : pe + REPOS;
+      if (pe === Infinity) return Infinity;
+      return Math.max(pe + REPOS, s.roundEnd[m.round - 1] ?? -1e9);
     };
     const prio = (m) => {
       // en poule : le participant qui attend depuis le PLUS LONGTEMPS

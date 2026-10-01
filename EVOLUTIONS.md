@@ -263,12 +263,38 @@ illégitime demi/quarter.
 
 ---
 
+## 2026-10-01 — Lot 8 : ordre strict des tours d'un même tableau (v1.6)
+
+Décision du juge-arbitre à la suite du diagnostic v1.5.1 : « il faut une
+limite stricte pour un même tableau/classement, sinon certains joueurs ne
+pourront pas jouer les 1/2 car ils n'auront pas encore disputé les 1/4 ».
+
+- **Barrière stricte entre tours** : un tour r d'un tableau final attend
+  que tous les matchs du tour r-1 du MÊME tableau soient terminés
+  (`roundLeft` nul + barrière `roundEnd`). Fini le parallélisme
+  demi/quart à l'intérieur d'un tableau ; il reste possible entre
+  tableaux différents (joueurs disjoints).
+- **1er tour ancré sur la fin des poules** : le 1er tour démarre après
+  la FIN de la dernière poule/ronde du tableau + repos (règle déjà
+  appliquée aux rondes suisses, unifiée pour tous les formats) — plus
+  de quart qui démarre pendant la dernière ronde de poules.
+- **Métriques de référence mises à jour** (garde-fous v1.6) : base
+  350 matchs, att60 = 75, max 112, moy 51 ; finalesFin 77/112/52 ;
+  poules→demis 132 min (≤ 150). L'ordre strict ne dégrade pas les
+  attentes : la moyenne baisse (54 → 51).
+- **Tests** : `byes-test.js` étendu — ordre strict vérifié sur tous
+  les tableaux et tours du tournoi témoin (demi après la fin du
+  dernier quart de son tableau, 1er tour après fin des poules + repos).
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation
 dans les trois versions (app React, web, hors-ligne) → régénération web
 (`tests/regen-web.sh`) → suite complète de tests (`tests/`) → CHANGELOG →
 commit descriptif → push. La suite compte 12 fichiers de test (dont
-`presets-test.js` depuis la v1.5 et `byes-test.js` depuis la v1.5.1). Les métriques de référence (base 350 matchs :
-att60 = 83, max 112, moy 54 ; finalesFin 93/124/57 ; poules→demis ≤ 150 min)
-servent de garde-fous de régression.
+`presets-test.js` depuis la v1.5, `byes-test.js` depuis la v1.5.1, étendu
+en v1.6 pour l'ordre strict des tours). Les métriques de référence depuis
+la v1.6 (base 350 matchs : att60 = 75, max 112, moy 51 ; finalesFin
+77/112/52 ; poules→demis ≤ 150 min) servent de garde-fous de régression.
