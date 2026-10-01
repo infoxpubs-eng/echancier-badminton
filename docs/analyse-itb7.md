@@ -51,7 +51,6 @@ Lecture : BadNet, par ses vagues cadencées, offre un rythme très régulier. No
 Court terme :
 - Durée par discipline (simple vs double) et par tour (créneau renforcé pour les finales, comme BadNet).
 - Nombre de terrains variable en cours de journée (le club libère 2 terrains à 17:00).
-- Vue « mon planning joueur » : un joueur tape son nom, voit ses matchs et ses attentes.
 - Import d'inscriptions réelles (CSV : noms, cotes min/max) et seed du bracket par cote plutôt que par classement de poule.
 - Suivi direct enrichi : heure réelle de fin saisie → dérive cumulée affichée, re-planification automatique.
 
@@ -59,7 +58,7 @@ Moyen terme :
 - Contraintes de disponibilité par joueur (« pas avant 10:00 »).
 - Mode what-if : ajouter/enlever un tableau et voir l'impact sur les métriques avant de valider.
 - Export PDF officiel (grille terrains × horaires) et affichage écrans de salle.
-- Profils utilisateurs / lien public (déjà différé en v2.0, ticket #10).
+- Profils utilisateurs / lien public (déjà différé, ticket #10).
 
 ## 4. Évoluer la priorisation sous contraintes terrains/horaires (question 2)
 
@@ -71,12 +70,32 @@ Les bornes (terrains, horaires, repos 20 min, ordre strict des tours v1.6) ne bo
 
 Une cible de fin de journée (« tout fini avant 22:30 ») peut servir de contrainte directrice : planification des vagues finales à rebours depuis l'heure de remise des prix.
 
-## 5. Suites possibles (à décider)
+## 5. Suites — décisions (octobre 2026)
 
-| # | Décision | Impact |
-|---|---|---|
-| A | Intégrer le test de reproduction ITB7 à la suite (14ᵉ fichier) — scénario réel de régression | Faible, immédiat |
-| B | Ajouter l'option « cadence par vagues » (niveau 1) | Moyen, ~1 itération |
-| C | Créneaux différenciés par tour (niveau 2) | Moyen |
-| D | Optimisation locale (niveau 3) avec fonction de coût réglable | Élevé, à cadrer |
-| E | Import d'inscriptions réelles + seed par cote | Élevé, dépend du format club |
+| # | Proposition | Décision | Détail |
+|---|---|---|---|
+| A | Intégrer le test de reproduction ITB7 à la suite (14ᵉ fichier) | **Retenu** | Scénario réel de régression ; le fichier de test local a été perdu avec l'environnement, à reconstruire |
+| B | Option « cadence par vagues » pour l'ordonnancement | **Retenu — avec étude comparative** | Voir § 6 : itérer avec la méthode actuelle (entrelacement + démarrages progressifs) pour estimer qui gagne du temps, repos min 20 min garanti |
+| C | Créneaux différenciés par tour (34/60 min finales) | **Retenu — en option** | Proposé en paramètre, pas en comportement par défaut |
+| D | Optimisation locale (hill-climbing / recuit) | **Différé** | À reproposer plus tard |
+| E | Import d'inscriptions réelles + seed par cote | **Différé** | À reproposer plus tard |
+| F | Durées par discipline (simple vs double) | **Retenu** | |
+| G | Terrains variables en cours de journée | **Retenu — dans les deux sens** | Ajouter X terrains si X disponibles, retirer Y terrains si non jouables (travaux, luminosité, dégradation…) ; heure de changement à indiquer explicitement |
+| H | Vue « mon planning joueur » | **Différé** | Conditionné à l'intégration des noms et paires réelles (E) |
+| I | Suivi direct enrichi (dérive cumulée, re-planification) | **Retenu** | |
+| J | Contraintes de disponibilité par joueur | **Différé** | Conditionné à E, comme H |
+| K | Mode what-if | **Retenu** | |
+| L | Export PDF officiel + écrans de salle | **Retenu** | |
+| M | Profils utilisateurs / lien public | **Différé — v3.0** | Recale le « v2.0 » initial du ticket #10 |
+
+## 6. Méthode proposée pour B — cadence par vagues vs entrelacement
+
+**Invariant commun** : un joueur ou une paire ne peut pas jouer son tour suivant sans un repos **minimum de 20 min** (les deux méthodes le garantissent ; c'est une contrainte, pas un réglage).
+
+**Étape 1 — Paramètre** : implémenter la cadence par vagues comme option par tournoi, réglable de 0 (entrelacement souple actuel) à 1 (vagues strictes type BadNet).
+
+**Étape 2 — Mesure** : rejouer le scénario ITB7 (23 tableaux, 308 matchs) aux deux extrêmes et à des valeurs intermédiaires. Métriques : heure de fin de journée, heure de fin par tableau, attente max, attente moyenne, nombre d'attentes ≥ 1 h.
+
+**Étape 3 — Critère de choix** : une méthode n'est retenue que si elle finit la journée plus tôt à contraintes égales, ou si elle réduit sensiblement les attentes ≥ 1 h sans retarder la fin.
+
+**Hypothèse de travail (méthode la plus réaliste)** : conserver l'entrelacement avec démarrage progressif comme défaut — il est auto-correcteur le jour J (retards, forfaits, W.O.) là où des vagues strictes se dégradent en cascade dès qu'un match déborde. La cadence par vagues, si l'étude le confirme, s'appliquerait en priorité aux tours de poules (là où se concentrent les attentes longues), en laissant les tableaux à élimination directe en démarrage progressif. Décision finale sur la base des mesures de l'étape 2.
