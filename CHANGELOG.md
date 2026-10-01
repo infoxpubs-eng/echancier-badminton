@@ -360,35 +360,40 @@ sur les suites : tickets #17 (clôt) et #18.
 Aucun changement de planification par défaut : métriques de référence
 inchangées (att60=75, attMax=112, attMoy=51 ; 350 matchs).
 
-## 2026-10-01 — Vue « Statistiques » : tableau de bord de restitution (v1.9)
+## 2026-10-01 — Tableau de bord statistique (v1.9)
 
-Demande du juge-arbitre : un tableau de bord des statistiques
-principales du tournoi, accessible par un bouton. Ajout d'une vue
-**« 📈 Statistiques »** (dernier onglet, après les tableaux) dans les
-trois versions, calculée par une nouvelle fonction `computeStats`
-(agrégats pures du plan, sans effet sur la planification) :
+Nouveau bouton « 📊 Statistiques » dans l'en-tête de l'écran tournoi
+(versions web, React et hors-ligne) : affiche/masque un tableau de bord
+de restitution chiffrée du tournoi, dérivé intégralement du plan et des
+effectifs saisis — aucune donnée supplémentaire à saisir.
 
-1. **Joueurs et paires — estimation** : positions de jeu hommes / femmes,
-   paires engagées (doubles + mixte), inscrits total, et répartition par
-   discipline (tableaux, inscrits, matchs). Sans noms réels, un même
-   joueur/paire inscrit dans plusieurs disciplines compte dans chacune ;
-   simple intergenre réparti moitié-moitié, mixte et intergenre = 1 H +
-   1 F par paire.
-2. **Matchs prévus** : total, poules, tableau final, exempts, W.O. ; par
-   jour : nombre, durée moyenne, temps de jeu, occupation des terrains
-   (temps de jeu ÷ terrains × amplitude), début → fin réelle et marge
-   réelle (fermeture − fin).
-3. **Temps d'attente** : max, moyenne, attentes ≥ 1 h et ≥ 1 h 30 (tous
-   matchs), ligne dédiée aux joueurs/paires de poules entre leurs
-   propres matchs, et distribution par tranches (0-20 / 20-40 / 40-60 /
-   60-90 / ≥ 90 min).
+1. **Inscrits estimés (H/F)** — joueurs H et joueuses F ventilés par
+   discipline (SM→H, SD→F, DM→2 H/paire, DD→2 F/paire, DX→1 H + 1 F par
+   paire), paires totales et par type, engagements. Joueurs anonymes :
+   un joueur engagé dans plusieurs tableaux est compté une fois par
+   tableau (estimation, pas un dédoublonnage — attendu avec l'import
+   des inscriptions, suite E).
+2. **Matchs et tableaux** — total planifié, formats (poules/uniques/
+   directs/suisses), exempts, W.O., non planifiés, répartition par
+   discipline.
+3. **Durées** — temps de jeu total (heures) et moyenne par engagement.
+4. **Attentes** — moyenne/maximum/≥ 1 h sur les badges de matchs, avec
+   répartition par palier (< 30 min, 30 min–1 h, 1 h–1 h30, 1 h30–2 h,
+   ≥ 2 h, mêmes pastilles que la légende), et vue joueurs/paires.
+5. **Par jour** — matchs, poules/finales, créneau effectif, temps de
+   jeu, occupation des terrains ( %), marge réelle à la fermeture,
+   attentes moyenne/max/≥ 1 h.
 
-Nouveau test `tests/stats-test.js` (15ᵉ fichier) : agrégats attendus
-sur le scénario ITB7 (234 H / 127 F / 133 paires / 361 inscrits ;
-308 matchs dont 247 poules, 10 exempts ; occupation 93 % / 78 % ;
-attentes max 136, 89 ≥ 1 h) et sanity sur la configuration de base.
+Ajout moteur : fonction pure `statsSummary(plan, jours, durée, marge)`
+(ES5-compatible, partagée par les trois versions). Nouveau test
+`tests/stats-test.js` (15ᵉ fichier de la suite) : valeurs de référence
+(180 H / 180 F, 135 paires, 360 engagements, attentes 51/112/75),
+reproduction ITB7 (234 H / 127 F, 133 paires, 361 engagements, 187+121
+matchs), W.O. comptés, et invariants de cohérence (paliers = attentes
+mesurées, jours = disciplines = total, occupation bornée 0-100 %).
 
-Aucun changement de planification : métriques de référence inchangées.
+Aucun changement de planification ni de métriques de référence :
+15/15 tests verts (suite `suite-v19.sh`).
 
 ## Feuille de route (mise à jour 2026-10-01)
 

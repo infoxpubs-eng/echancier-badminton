@@ -439,6 +439,127 @@ const cfgStore = {
   read() { try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}") || {}; } catch (e) { return {}; } },
   write(o) { try { localStorage.setItem(CFG_KEY, JSON.stringify(o)); } catch (e) {} },
 };
+/* ---------- tableau de bord statistique (bouton « Statistiques ») ----------
+   Restitution chiffrée du tournoi, dérivée intégralement du plan et des
+   effectifs saisis : inscrits estimés (engagements par tableau — un
+   joueur/une paire peut être engagé(e) dans plusieurs tableaux, les
+   joueurs étant anonymes ce sont des estimations), matchs, durées,
+   attentes avec répartition par palier, occupation des terrains et
+   marges réelles par jour. Aucune donnée saisie en plus. */
+function statsSummary(plan, jours, dureeBrut, margeBrut) {
+  var jH = 0, jF = 0, jI = 0, pM = 0, pF = 0, pX = 0, pI = 0;
+  plan.built.forEach(function (b) {
+    var n = b.n;
+    if (b.unit === "paires") {
+      if (b.tab.disc === "DM") pM += n;
+      else if (b.tab.disc === "DD") pF += n;
+      else if (b.tab.disc === "DX") pX += n;
+      else pI += n;
+    } else if (b.tab.disc === "SM") jH += n;
+    else if (b.tab.disc === "SD") jF += n;
+    else jI += n;
+  });
+  var inscrits = {
+    joueursH: jH + 2 * pM + pX,
+    joueusesF: jF + 2 * pF + pX,
+    intergenre: jI + 2 * pI,
+    paires: pM + pF + pX + pI,
+    pairesM: pM, pairesF: pF, pairesX: pX, pairesI: pI,
+    simples: jH + jF + jI,
+    engagements: jH + jF + jI + 2 * (pM + pF + pX + pI),
+  };
+  var formats = { poules: 0, uniques: 0, direct: 0, suisse: 0 };
+  var exempts = 0;
+  plan.built.forEach(function (b) {
+    if (b.suisse) formats.suisse++;
+    else if (b.P === 0) formats.direct++;
+    else if (b.P === 1) formats.uniques++;
+    else formats.poules++;
+    if (b.finals) exempts += b.finals.filter(function (m) { return m.round === 0 && m.bye; }).length;
+    if (b.exempts) exempts += b.exempts.length;
+  });
+  // attentes « badges » : attentes individuelles des matchs planifiés
+  var wsAll = plan.sched.map(function (m) { return m.att; })
+    .filter(function (w) { return w !== null && w !== undefined; });
+  var sum = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
+  var paliers = [
+    { lbl: "< 30 min", n: wsAll.filter(function (w) { return w < 30; }).length },
+    { lbl: "30 min – 1h", n: wsAll.filter(function (w) { return w >= 30 && w < 60; }).length },
+    { lbl: "1h – 1h30", n: wsAll.filter(function (w) { return w >= 60 && w < 90; }).length },
+    { lbl: "1h30 – 2h", n: wsAll.filter(function (w) { return w >= 90 && w < 120; }).length },
+    { lbl: "≥ 2h", n: wsAll.filter(function (w) { return w >= 120; }).length },
+  ];
+  var wp = plan.attentes.map(function (a) { return a.w; });
+  // par jour : matchs, temps de jeu, occupation, attentes, marge réelle
+  var jrs = [];
+  var jeuTotal = 0;
+  plan.days.forEach(function (day) {
+    var j = jours[day] || {};
+    var ms = plan.perDay[day] || [];
+    var dj = dureeCalc(
+      j.dureeMatch !== undefined && j.dureeMatch !== "" ? j.dureeMatch : dureeBrut,
+      j.marge !== undefined && j.marge !== "" ? j.marge : margeBrut
+    );
+    var jeu = ms.reduce(function (s, m) { return s + (m.duree !== undefined ? m.duree : dj); }, 0);
+    jeuTotal += jeu;
+    var terrains = Math.max(1, Math.floor(+j.terrains) || 1);
+    var deb = ms.length ? Math.min.apply(null, ms.map(function (m) { return m.time; })) : null;
+    var fin = ms.length ? Math.max.apply(null, ms.map(function (m) { return m.time + (m.duree !== undefined ? m.duree : dj); })) : null;
+    var plage = fin !== null ? fin - toMin(j.debut, 9 * 60) : 0;
+    var wsD = ms.map(function (m) { return m.att; }).filter(function (w) { return w !== null && w !== undefined; });
+    jrs.push({
+      day: day,
+      nb: ms.length,
+      poules: ms.filter(function (m) { return m.phase === "poule"; }).length,
+      finales: ms.filter(function (m) { return m.phase !== "poule"; }).length,
+      dureeJ: dj,
+      jeuH: Math.round(jeu / 60),
+      occupation: plage > 0 ? Math.round(100 * jeu / (terrains * plage)) : 0,
+      terrains: terrains,
+      debut: deb !== null ? fmtTime(deb) : "—",
+      fin: fin !== null ? fmtTime(fin) : "—",
+      margeReelle: fin !== null ? Math.round(toMin(j.fin, 18 * 60) - fin) : null,
+      attMoy: wsD.length ? Math.round(sum(wsD) / wsD.length) : 0,
+      attMax: wsD.length ? Math.max.apply(null, wsD) : 0,
+      att60: wsD.filter(function (w) { return w >= 60; }).length,
+      wo: plan.forfaits.filter(function (m) { return m.day === day; }).length,
+    });
+  });
+  var byDisc = {};
+  plan.built.forEach(function (b) {
+    var nb = plan.sched.filter(function (m) { return m.tid === b.tid; }).length;
+    byDisc[b.tab.disc] = (byDisc[b.tab.disc] || 0) + nb;
+  });
+  var eng = inscrits.engagements || 1;
+  return {
+    inscrits: inscrits,
+    total: plan.sched.length,
+    tableaux: {
+      total: plan.built.length, formats: formats, exempts: exempts,
+      wo: plan.forfaits.length, nonPlanifies: plan.unscheduled.length,
+    },
+    attentes: {
+      n: wsAll.length,
+      moy: wsAll.length ? Math.round(sum(wsAll) / wsAll.length) : 0,
+      max: wsAll.length ? Math.max.apply(null, wsAll) : 0,
+      sup60: wsAll.filter(function (w) { return w >= 60; }).length,
+      paliers: paliers,
+    },
+    attentesJoueurs: {
+      n: wp.length,
+      moy: wp.length ? Math.round(sum(wp) / wp.length) : 0,
+      max: wp.length ? Math.max.apply(null, wp) : 0,
+      sup60: wp.filter(function (w) { return w >= 60; }).length,
+    },
+    jours: jrs,
+    byDisc: byDisc,
+    jeu: {
+      totalH: Math.round(jeuTotal / 60),
+      moyenneParEngagement: Math.round(2 * jeuTotal / eng),
+      matchsParEngagement: Math.round(10 * 2 * plan.sched.length / eng) / 10,
+    },
+  };
+}
 /* ---------- moteur d'ordonnancement ---------- */
 /* Pour chaque jour : simulation événementielle. Chaque terrain a une
    heure de libération ; on prend le terrain libre le plus tôt, et parmi
@@ -448,88 +569,6 @@ const cfgStore = {
    chevauche) ; le 7e argument (facultatif) liste les matchs « W.O. »
    (forfaits) : ils ne consomment pas de terrain et libèrent les
    matchs qui en dépendent — la journée est replanifiée sans eux. */
-/* ---------- statistiques du tournoi (vue « Statistiques ») ----------
-   Agrégats de restitution accessibles par bouton : inscrits (positions
-   de jeu H/F — estimation : sans noms, un même joueur/paire peut
-   figurer dans plusieurs tableaux), paires, matchs prévus (poules /
-   tableau final, exempts, W.O.), durées moyennes et temps de jeu,
-   occupation des terrains, marges réelles, temps d'attente (tous
-   matchs et joueurs de poules) et distribution par tranches. */
-function computeStats(tabs, jours, plan) {
-  const dOf = (m) => (m.duree !== undefined ? m.duree : 28);
-  /* positions de jeu par discipline : un joueur en simple = 1 position,
-     une paire en double = 2 ; mixte et double intergenre = 1 H + 1 F par
-     paire ; simple intergenre réparti moitié-moitié */
-  const GEN = {
-    SM: { h: 1, f: 0, paire: 0 }, SD: { h: 0, f: 1, paire: 0 }, SI: { h: 0.5, f: 0.5, paire: 0 },
-    DM: { h: 2, f: 0, paire: 1 }, DD: { h: 0, f: 2, paire: 1 },
-    DX: { h: 1, f: 1, paire: 1 }, DI: { h: 1, f: 1, paire: 1 },
-  };
-  let posH = 0, posF = 0, paires = 0, inscritsTot = 0;
-  const parDisc = [];
-  const discIdx = {};
-  plan.built.forEach((b) => {
-    const g = GEN[b.tab.disc] || GEN.SI;
-    const n = b.n;
-    posH += g.h * n; posF += g.f * n; paires += g.paire * n;
-    inscritsTot += (g.paire ? 2 : 1) * n;
-    let rec = discIdx[b.tab.disc];
-    if (!rec) {
-      rec = { key: b.tab.disc, label: ((DISCIPLINES.find((d) => d.key === b.tab.disc) || {}).label) || b.tab.disc, tableaux: 0, inscrits: 0, matchs: 0 };
-      discIdx[b.tab.disc] = rec; parDisc.push(rec);
-    }
-    rec.tableaux++; rec.inscrits += (g.paire ? 2 : 1) * n;
-    rec.matchs += b.poolMs.length + b.playedFinals.length;
-  });
-  /* matchs : poules / tableau final, exempts (1ᵉʳ tour de bracket non
-     joué), W.O. ; par jour : durée moyenne, temps de jeu, occupation
-     des terrains, fin réelle et marge réelle */
-  let poules = 0, finales = 0, exempts = 0;
-  plan.built.forEach((b) => {
-    (b.finals || []).forEach((m) => { if (m.round === 0 && m.bye) exempts++; });
-  });
-  plan.sched.forEach((m) => { if (m.phase === "poule") poules++; else finales++; });
-  const parJour = plan.days.map((day) => {
-    const ms = plan.perDay[day] || [];
-    const j = jours[day] || {};
-    const nb = ms.length;
-    const dj = nb ? Math.round(ms.reduce((a, m) => a + dOf(m), 0) / nb) : 0;
-    const jeu = nb * dj;
-    const debut = nb ? Math.min.apply(null, ms.map((m) => m.time)) : null;
-    const finReelle = nb ? Math.max.apply(null, ms.map((m) => m.time + dOf(m))) : null;
-    const terr = Math.max(1, Math.floor(+j.terrains) || 1);
-    const debJ = toMin(j.debut, 9 * 60), finJ = toMin(j.fin, 18 * 60);
-    const dispo = terr * Math.max(1, finJ - debJ);
-    return {
-      jour: day, nb, duree: dj, jeu, debut, finReelle, fermeture: finJ,
-      margeReelle: finReelle === null ? null : finJ - finReelle,
-      occupation: dispo > 0 && jeu > 0 ? Math.round(100 * jeu / dispo) : 0,
-    };
-  });
-  /* attentes : tous matchs mesurables (badges) et joueurs/paires de
-     poules entre leurs propres matchs ; distribution par tranches */
-  const wb = plan.sched.map((m) => m.att).filter((w) => w !== null && w !== undefined);
-  const wp = plan.attentes.map((a) => a.w);
-  const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0);
-  const mx = (arr) => (arr.length ? Math.max.apply(null, arr) : 0);
-  const tranches = [
-    { lbl: "0–20 min", n: wb.filter((w) => w < 20).length },
-    { lbl: "20–40 min", n: wb.filter((w) => w >= 20 && w < 40).length },
-    { lbl: "40–60 min", n: wb.filter((w) => w >= 40 && w < 60).length },
-    { lbl: "60–90 min", n: wb.filter((w) => w >= 60 && w < 90).length },
-    { lbl: "≥ 90 min", n: wb.filter((w) => w >= 90).length },
-  ];
-  return {
-    inscrits: { H: posH, F: posF, total: inscritsTot, paires, parDisc },
-    matchs: { total: plan.sched.length, poules, finales, wo: plan.forfaits.length, exempts, parJour },
-    attentes: {
-      tous: { n: wb.length, max: mx(wb), moy: avg(wb), att60: wb.filter((w) => w >= 60).length, att90: wb.filter((w) => w >= 90).length },
-      poules: { n: wp.length, max: mx(wp), moy: avg(wp), att60: wp.filter((w) => w >= 60).length },
-      tranches,
-    },
-  };
-}
-
 function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, forfaits, cadenceBrut) {
   // durée planifiée = durée moyenne + marge de sécurité : la marge absorbe
   // les dépassements réels pour que le repos de 20 min reste garanti
@@ -988,6 +1027,8 @@ function App() {
   });
   const [tabs, setTabs] = useState(baseTabs());
   const [vueTab, setVueTab] = useState("planning");
+  // tableau de bord statistique : affiché/masqué par le bouton dédié
+  const [showStats, setShowStats] = useState(false);
   // suivi en direct : matchs cochés « terminé » et « W.O. » (forfaits) —
   // un W.O. replanifie la journée sans consommer de créneau terrain
   const [live, setLive] = useState(false);
@@ -1478,8 +1519,8 @@ function App() {
   }
 
   /* ---------- écran échéancier ---------- */
-  const jourKeys = ["synthese", "planning", "classement"].concat(plan.built.map((b) => "t" + b.tid)).concat(["stats"]);
-  const jourLabels = { synthese: "📊 Synthèse", planning: "🗓️ Planning", classement: "🏷️ Par classement", stats: "📈 Statistiques" };
+  const jourKeys = ["synthese", "planning", "classement"].concat(plan.built.map((b) => "t" + b.tid));
+  const jourLabels = { synthese: "📊 Synthèse", planning: "🗓️ Planning", classement: "🏷️ Par classement" };
   /* durée effective d'un match : celle du jour de sa planification (le
      jour peut surcharger durée/marge), sinon la valeur commune */
   const mduree = (m) => (m.duree !== undefined ? m.duree : dureeCalc(dureeMatch, marge));
@@ -1545,6 +1586,7 @@ function App() {
           <button className="rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50" onClick={exportCsv}>⬇ Export CSV</button>
           <button className="rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50" title="imprime la vue courante ou enregistrez-la en PDF" onClick={() => window.print()}>🖨️ PDF / Imprimer</button>
           <button className="rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50" onClick={() => setPhase("config")}>⚙️ Modifier la configuration</button>
+          <button className={showStats ? "rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white" : "rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50"} title="afficher/masquer le tableau de bord statistique du tournoi : inscrits, paires, matchs, durées, attentes, occupation des terrains" onClick={() => setShowStats((v) => !v)}>📊 Statistiques</button>
         </div>
       </header>
       {live && (
@@ -1584,6 +1626,94 @@ function App() {
           {plan.forfaits.length > 0 && <div className="text-[11px] text-amber-600">+ {plan.forfaits.length} W.O. non joués</div>}
         </div>
       </div>
+
+      {showStats && (() => {
+        const st = statsSummary(plan, jours, dureeMatch, marge);
+        return (
+          <div className={cardCls}>
+            <h3 className="mb-3 font-semibold text-emerald-900">📊 Tableau de bord statistique</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                <div className="text-lg font-bold text-emerald-900">{st.inscrits.joueursH} H · {st.inscrits.joueusesF} F</div>
+                <div className="text-xs text-emerald-600">joueurs estimés (engagements)</div>
+                <div className="text-[11px] text-emerald-500">+ {st.inscrits.intergenre} intergenre · {st.inscrits.engagements} engagements</div>
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                <div className="text-lg font-bold text-emerald-900">{st.inscrits.paires}</div>
+                <div className="text-xs text-emerald-600">paires estimées</div>
+                <div className="text-[11px] text-emerald-500">{st.inscrits.pairesM} H · {st.inscrits.pairesF} F · {st.inscrits.pairesX} mixtes · {st.inscrits.pairesI} intergenre</div>
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                <div className="text-lg font-bold text-emerald-900">{st.total}</div>
+                <div className="text-xs text-emerald-600">matchs planifiés</div>
+                <div className="text-[11px] text-emerald-500">{st.tableaux.total} tableaux · {st.tableaux.formats.poules} poules · {st.tableaux.formats.uniques} uniques · {st.tableaux.formats.direct} directs · {st.tableaux.formats.suisse} suisses</div>
+                <div className="text-[11px] text-emerald-500">{st.tableaux.exempts} exempts{st.tableaux.wo > 0 ? " · " + st.tableaux.wo + " W.O." : ""}{st.tableaux.nonPlanifies > 0 ? " · ⚠️ " + st.tableaux.nonPlanifies + " non planifiés" : ""}</div>
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                <div className="text-lg font-bold text-emerald-900">{st.jeu.moyenneParEngagement} min</div>
+                <div className="text-xs text-emerald-600">durée moyenne de jeu par engagement</div>
+                <div className="text-[11px] text-emerald-500">{st.jeu.totalH} h de jeu au total · {st.jeu.matchsParEngagement} matchs/engagement</div>
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-emerald-100 p-3">
+                <div className="mb-2 text-sm font-semibold text-emerald-900">⏱️ Attentes (matchs)</div>
+                <div className="text-xs text-emerald-700">moyenne {attFmt(st.attentes.moy)} · maximum {attFmt(st.attentes.max)} · {st.attentes.sup60} ≥ 1h</div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {st.attentes.paliers.map((p, i) => (
+                    <span key={p.lbl} className={(ATT_STEPS[i] || {}).cls + " rounded px-1.5 py-0.5 text-[10px] font-semibold"}>{p.lbl} : {p.n}</span>
+                  ))}
+                </div>
+                <div className="mt-1 text-[11px] text-emerald-500">
+                  vue joueurs/paires (repos {REPOS} min inclus) : moyenne {attFmt(st.attentesJoueurs.moy)} · max {attFmt(st.attentesJoueurs.max)} · {st.attentesJoueurs.sup60} ≥ 1h
+                </div>
+              </div>
+              <div className="rounded-xl border border-emerald-100 p-3">
+                <div className="mb-2 text-sm font-semibold text-emerald-900">🏸 Matchs par discipline</div>
+                <div className="flex flex-wrap gap-1 text-xs">
+                  {Object.keys(st.byDisc).sort().map((d) => (
+                    <span key={d} className="rounded bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800">{d} : {st.byDisc[d]}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-emerald-100 text-emerald-600">
+                    <th className="py-1 pr-2">Jour</th><th className="py-1 pr-2">Matchs</th><th className="py-1 pr-2">Poules</th><th className="py-1 pr-2">Finales</th>
+                    <th className="py-1 pr-2">Créneau</th><th className="py-1 pr-2">Jeu</th><th className="py-1 pr-2">Occupation</th>
+                    <th className="py-1 pr-2">Marge fin</th><th className="py-1 pr-2">Attente moy</th><th className="py-1 pr-2">Attente max</th><th className="py-1 pr-2">≥ 1h</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {st.jours.map((j) => (
+                    <tr key={j.day} className="border-b border-emerald-50">
+                      <td className="py-1 pr-2 font-medium capitalize text-emerald-900">{j.day}</td>
+                      <td className="py-1 pr-2">{j.nb}</td>
+                      <td className="py-1 pr-2">{j.poules}</td>
+                      <td className="py-1 pr-2">{j.finales}</td>
+                      <td className="py-1 pr-2">{j.debut} → {j.fin}</td>
+                      <td className="py-1 pr-2">{j.jeuH} h</td>
+                      <td className="py-1 pr-2">{j.occupation} % ({j.terrains} terrains)</td>
+                      <td className={"py-1 pr-2 " + (j.margeReelle !== null && j.margeReelle < 0 ? "font-semibold text-red-600" : "")}>{j.margeReelle !== null ? (j.margeReelle >= 0 ? "+" : "") + j.margeReelle + " min" : "—"}</td>
+                      <td className="py-1 pr-2">{j.nb ? attFmt(j.attMoy) : "—"}</td>
+                      <td className="py-1 pr-2">{j.nb ? attFmt(j.attMax) : "—"}</td>
+                      <td className="py-1 pr-2">{j.att60 > 0 ? "⚠️ " + j.att60 : "✅"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-2 text-[11px] text-emerald-500">
+              Effectifs estimés à partir des engagements par tableau (joueurs anonymes : un même joueur engagé dans plusieurs tableaux est compté plusieurs fois).
+              Les inscriptions réelles seront intégrées avec l'import des noms (suite E).
+            </div>
+          </div>
+        );
+      })()}
 
       {statsJour.filter((s) => s.depasse).map((s) => (
         <div key={s.day} className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -1716,117 +1846,6 @@ function App() {
                   <p className="text-xs text-emerald-500">attente max {s.attMax} min · moyenne {s.attMoy} min</p>
                 </div>
               ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* vue « Statistiques » : tableau de bord de restitution des
-          indicateurs principaux (accessible par bouton) */}
-      {vueTab === "stats" && (() => {
-        const st = computeStats(tabs, jours, plan);
-        const tmax = Math.max(1, ...st.attentes.tranches.map((t) => t.n));
-        const tile = (v, l, sub) => (
-          <div className="rounded-xl border border-emerald-100 bg-white p-3 text-center shadow-sm">
-            <div className="text-lg font-bold text-emerald-900">{v}</div>
-            <div className="text-xs text-emerald-600">{l}</div>
-            {sub ? <div className="mt-1 text-[11px] text-emerald-500">{sub}</div> : null}
-          </div>
-        );
-        return (
-          <div className="space-y-5">
-            <div className={cardCls}>
-              <h3 className="mb-3 font-semibold text-emerald-900">👥 Joueurs et paires — estimation</h3>
-              <div className="grid gap-3 sm:grid-cols-4">
-                {tile(Math.round(st.inscrits.H), "positions de jeu hommes (H)")}
-                {tile(Math.round(st.inscrits.F), "positions de jeu femmes (F)")}
-                {tile(st.inscrits.paires, "paires engagées (doubles + mixte)")}
-                {tile(st.inscrits.total, "inscrits au total, toutes disciplines")}
-              </div>
-              <p className="mt-2 text-xs text-emerald-600">
-                Estimation : sans noms, un même joueur (ou une même paire) inscrit dans plusieurs disciplines ou sur les
-                deux jours compte dans chacune. Une paire = 2 positions de jeu (mixte et intergenre : 1 H + 1 F).
-              </p>
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs uppercase text-emerald-600">
-                      <th className="py-1 pr-4">Discipline</th><th className="py-1 pr-4">Tableaux</th><th className="py-1 pr-4">Inscrits</th><th className="py-1 pr-4">Matchs</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {st.inscrits.parDisc.map((d) => (
-                      <tr key={d.key} className="border-b border-emerald-50">
-                        <td className="py-1 pr-4">{d.label}</td><td className="py-1 pr-4">{d.tableaux}</td>
-                        <td className="py-1 pr-4">{d.inscrits}</td><td className="py-1 pr-4">{d.matchs}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className={cardCls}>
-              <h3 className="mb-3 font-semibold text-emerald-900">🏸 Matchs prévus</h3>
-              <div className="grid gap-3 sm:grid-cols-5">
-                {tile(st.matchs.total, "matchs planifiés")}
-                {tile(st.matchs.poules, "matchs de poule")}
-                {tile(st.matchs.finales, "matchs de tableau final")}
-                {tile(st.matchs.exempts, "exempts (1ᵉʳ tour)")}
-                {tile(st.matchs.wo, "W.O. (non joués)")}
-              </div>
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs uppercase text-emerald-600">
-                      <th className="py-1 pr-4">Jour</th><th className="py-1 pr-4">Matchs</th><th className="py-1 pr-4">Durée / match</th>
-                      <th className="py-1 pr-4">Temps de jeu</th><th className="py-1 pr-4">Occupation terrains</th>
-                      <th className="py-1 pr-4">Début → fin réelle</th><th className="py-1 pr-4">Marge réelle</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {st.matchs.parJour.map((j) => (
-                      <tr key={j.jour} className="border-b border-emerald-50">
-                        <td className="py-1 pr-4 capitalize">{j.jour}</td>
-                        <td className="py-1 pr-4">{j.nb}</td>
-                        <td className="py-1 pr-4">{j.duree} min</td>
-                        <td className="py-1 pr-4">{Math.floor(j.jeu / 60)} h {String(j.jeu % 60).padStart(2, "0")} min</td>
-                        <td className="py-1 pr-4">{j.occupation} %</td>
-                        <td className="py-1 pr-4">{j.debut === null ? "—" : fmtTime(j.debut) + " → " + fmtTime(j.finReelle)}</td>
-                        <td className="py-1 pr-4">{j.margeReelle === null ? "—" : (j.margeReelle >= 0 ? "+" : "") + j.margeReelle + " min"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="mt-2 text-xs text-emerald-600">
-                Occupation = temps de jeu cumulé ÷ (terrains × amplitude du jour). Marge réelle = fermeture − fin réelle
-                (négative = dépassement de l'horaire officiel). Durée / match = durée planifiée moyenne du jour.
-              </p>
-            </div>
-            <div className={cardCls}>
-              <h3 className="mb-3 font-semibold text-emerald-900">⏱️ Temps d'attente (repos de {REPOS} min inclus)</h3>
-              <div className="grid gap-3 sm:grid-cols-4">
-                {tile(st.attentes.tous.max + " min", "attente max (tous matchs)", st.attentes.tous.n + " matchs mesurables")}
-                {tile(st.attentes.tous.moy + " min", "attente moyenne (tous matchs)")}
-                {tile(st.attentes.tous.att60, "attentes ≥ 1 h")}
-                {tile(st.attentes.tous.att90, "attentes ≥ 1 h 30")}
-              </div>
-              <p className="mt-2 text-xs text-emerald-600">
-                Joueurs / paires de poules, entre leurs propres matchs : max {st.attentes.poules.max} min · moyenne
-                {" "}{st.attentes.poules.moy} min · {st.attentes.poules.att60} attentes ≥ 1 h ({st.attentes.poules.n} mesurées).
-              </p>
-              <div className="mt-3">
-                <div className="mb-1 text-xs font-semibold text-emerald-700">Distribution des attentes (tous matchs)</div>
-                {st.attentes.tranches.map((t) => (
-                  <div key={t.lbl} className="mb-1 flex items-center gap-2">
-                    <span className="w-20 text-xs text-emerald-700">{t.lbl}</span>
-                    <div className="h-3 flex-1 rounded bg-emerald-50">
-                      <div className="h-3 rounded bg-emerald-500" style={{ width: (100 * t.n / tmax) + "%" }} />
-                    </div>
-                    <span className="w-10 text-right text-xs text-emerald-700">{t.n}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         );

@@ -378,34 +378,29 @@ de 20 min.
 
 ---
 
-## 2026-10-01 — Lot 12 : vue « Statistiques » — tableau de bord de restitution (v1.9)
+## 2026-10-01 — Lot 12 : tableau de bord statistique (v1.9)
 
-Demande du juge-arbitre (hors liste A-M initiale, ticket #18) : créer un
-tableau de bord des statistiques principales, accessible par un bouton —
-nombre de joueurs (H/F) estimés, paires, matchs prévus, durées moyennes,
-temps d'attente, et tout indicateur utile.
-
-- **Implémentation** : fonction `computeStats(tabs, jours, plan)`
-  (agrégats purs du plan, insérée avant `computePlan` dans le moteur des
-  trois versions) + vue « 📈 Statistiques » en dernier onglet.
-  Indicateurs : (1) joueurs et paires estimés — positions de jeu H/F
-  par discipline (simple intergenre 50/50, mixte et intergenre 1 H + 1 F
-  par paire), paires, inscrits total, répartition par discipline ;
-  (2) matchs prévus — total/poules/tableau final/exempts/W.O., par jour
-  durée moyenne, temps de jeu, occupation des terrains, début → fin
-  réelle et marge réelle ; (3) temps d'attente — max/moyenne/att60/att90
-  tous matchs, joueurs de poules entre leurs propres matchs,
-  distribution par tranches (0-20 à ≥ 90 min).
-- **Estimation documentée** : sans noms réels (joueurs anonymes), un
-  même joueur ou paire inscrit dans plusieurs disciplines ou sur les
-  deux jours compte dans chacune ; l'estimation sera affinée par E
-  (import des inscriptions).
-- **Test** : `tests/stats-test.js` (15ᵉ fichier) — agrégats attendus
-  sur ITB7 (234 H / 127 F / 133 paires / 361 inscrits, 308 matchs
-  dont 247 poules / 61 finales / 10 exempts, temps de jeu 6 358 +
-  4 114 min, occupation 93 % / 78 %, fins 22:41 +19 / 18:34 +56,
-  attentes max 136, 89 ≥ 1 h, moyennes 65 / 55) + sanity baseTabs
-  (pas de NaN, sommes cohérentes, occupations 0-100 %).
+- **Demande** : restituer en un clic les statistiques principales du
+  tournoi — joueurs H/F estimés, paires, matchs prévus, durées moyennes,
+  temps d'attente et tout indicateur utile, via un bouton dédié.
+- **Réponse** : bouton « 📊 Statistiques » dans l'en-tête de l'écran
+  tournoi (les trois versions), panneau déroulant dérivé d'une fonction
+  moteur pure `statsSummary(plan, jours, durée, marge)` : inscrits
+  estimés ventilés H/F par discipline (SM→H, SD→F, DM→2 H, DD→2 F,
+  DX→1 H + 1 F par paire), paires par type, engagements, matchs et
+  formats de tableau, exempts/W.O./non planifiés, temps de jeu total et
+  moyenne par engagement, attentes (moy/max/≥ 1 h + répartition par
+  palier aux couleurs de la légende + vue joueurs/paires), et tableau
+  par jour (matchs, poules/finales, créneau, occupation des terrains,
+  marge réelle, attentes).
+- **Limite assumée** : joueurs anonymes → effectifs estimés par
+  engagement (un joueur multi-tableaux est compté plusieurs fois) ;
+  le dédoublonnage arrivera avec l'import des inscriptions (suite E).
+- **Test** : `tests/stats-test.js` — valeurs de référence (180 H /
+  180 F, 135 paires, 360 engagements, attentes 51/112/75 alignées sur
+  `metrics.js`), reproduction ITB7 (234 H / 127 F, 133 paires,
+  361 engagements, 187 + 121 matchs), W.O. comptés, cohérence interne
+  (paliers = attentes, jours = disciplines = total, occupation 0-100 %).
 
 ---
 
@@ -417,7 +412,8 @@ dans les trois versions (app React, web, hors-ligne) → régénération web
 commit descriptif → push. La suite compte 15 fichiers de test (dont
 `presets-test.js` depuis la v1.5, `byes-test.js` depuis la v1.5.1 —
 étendu en v1.6 pour l'ordre strict des tours —, `ordre-jours-test.js`
-depuis la v1.7, `itb7-test.js` depuis la v1.8 et `stats-test.js` depuis
-la v1.9). Les métriques de référence depuis
+depuis la v1.7, `itb7-test.js` depuis la v1.8 et `stats-test.js`
+depuis la v1.9). Les métriques de
+référence depuis
 la v1.6 (base 350 matchs : att60 = 75, max 112, moy 51 ; finalesFin
 77/112/52 ; poules→demis ≤ 150 min) servent de garde-fous de régression.
