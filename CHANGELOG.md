@@ -73,3 +73,30 @@ Toutes les vues, la version hors-ligne (iPad), la version web et l'export
 CSV sont alignés. Suite de tests étendue : render-views (N° uniques et
 croissants, délais ≈ cohérents, attente max combinée), render-config
 (marge réelle sur 4 scénarios), hors-ligne 95 contrôles (84 → 95).
+
+## 2026-10-01 — Estimation de capacité clarifiée (v1.2)
+
+Question du juge-arbitre : « Comment est calculé le −201 ? Pour le
+dimanche, tous les matchs ne semblent pas pris en compte. »
+
+1. **Décomposition « deux-jours » dans « Planifié »** : la colonne
+   « Planifié » affiche désormais le nombre de matchs venant de tableaux
+   non fixés à ce jour (« les deux jours ») sous la forme
+   « 68 (11 deux-jours) », avec une info-bulle détaillant la
+   décomposition (deux-jours vs fixés au jour). C'est la cause de
+   l'écart constaté : « Besoin fixe » ne compte que les tableaux
+   affectés à CE jour, alors que les tableaux « les deux jours » se
+   planifient en partie chaque jour.
+2. **Info-bulles d'en-tête explicites** : « Besoin fixe », « Marge »,
+   « Planifié » et « Marge réelle » expliquent chacune leur calcul.
+   « Marge » est signalée comme théorique (capacité − besoin fixe
+   uniquement) : ne pas s'y fier pour savoir si la journée tient.
+3. **Explication du signe négatif** : une « Marge réelle » négative
+   signifie que le dernier match planifié finit après la fermeture
+   (ex. −201 min = fermeture 17:00, dernier match 20:21). **Aucun match
+   n'est supprimé** : le moteur planifie tout, même au-delà de
+   l'horaire, et l'écran tournoi le signale (⚠️ horaire de fin modifié).
+
+Aucune modification du moteur ni des métriques de référence
+(att60 = 83, max 112, moy 54) : amélioration d'affichage uniquement,
+alignée sur les trois versions (React, web, hors-ligne).

@@ -952,6 +952,10 @@ export default function App() {
             const finReelle = rms.length ? Math.max(...rms.map((m) => m.time + (m.duree !== undefined ? m.duree : dureeJour(j)))) : null;
             realJour[j] = {
               nb: rms.length,
+              // matchs venant de tableaux NON fixés à ce jour (« les deux
+              // jours » ou tableau d'un jour inactif) : ils ne sont pas
+              // dans le « besoin fixe » mais consomment la capacité du jour
+              deux: rms.filter((m) => realPlan.built[m.tid].tab.jour !== j).length,
               margeReelle: finReelle === null ? null : toMin(jours[j].fin, 18 * 60) - finReelle,
             };
           });
@@ -961,7 +965,7 @@ export default function App() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs uppercase text-emerald-600">
-                    <th className="py-1">Jour</th><th>Capacité</th><th>Besoin fixe</th><th>Les deux jours</th><th>Marge</th><th title="matchs réellement planifiés avec les paramètres courants (repos et alternance inclus)">Planifié</th><th title="marge en minutes entre la fin réelle de la journée planifiée et l'horaire de fermeture — négatif = la journée ne tient pas">Marge réelle</th>
+                    <th className="py-1">Jour</th><th>Capacité</th><th title="besoin des tableaux affectés à CE jour uniquement — les tableaux « les deux jours » ne sont pas comptés ici (colonne suivante)">Besoin fixe</th><th>Les deux jours</th><th title="capacité − besoin fixe uniquement : les tableaux « les deux jours » n'y sont pas déduits — ne pas s'y fier pour savoir si la journée tient, voir « Marge réelle »">Marge</th><th title="matchs réellement planifiés avec les paramètres courants (repos et alternance inclus), y compris les matchs des tableaux « les deux jours » tombés sur ce jour">Planifié</th><th title="marge en minutes entre la fin réelle de la journée planifiée et l'horaire de fermeture — négatif = le dernier match finit après la fermeture (rien n'est supprimé)">Marge réelle</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -978,7 +982,7 @@ export default function App() {
                         <td className={"font-mono font-semibold " + (jours[j].actif && marge < 0 ? "text-red-700" : "text-emerald-700")}>
                           {jours[j].actif ? (marge >= 0 ? "✓ +" + marge : "⚠ " + marge) : "—"}
                         </td>
-                        <td className="font-mono">{jours[j].actif ? realJour[j].nb : "—"}</td>
+                        <td className="font-mono" title={jours[j].actif && realJour[j].nb ? ("dont " + realJour[j].deux + " match(s) de tableaux « les deux jours » (non comptés dans le besoin fixe) + " + (realJour[j].nb - realJour[j].deux) + " de tableaux fixés au jour") : null}>{jours[j].actif ? <span>{realJour[j].nb}{realJour[j].deux > 0 && <span className="text-emerald-500"> ({realJour[j].deux} deux-jours)</span>}</span> : "—"}</td>
                         <td className={"font-mono font-semibold " + (jours[j].actif && realJour[j].margeReelle !== null && realJour[j].margeReelle < 0 ? "text-red-700" : "text-emerald-700")}>
                           {jours[j].actif && realJour[j].margeReelle !== null ? (realJour[j].margeReelle >= 0 ? "✓ +" + realJour[j].margeReelle : "⚠ " + realJour[j].margeReelle) + " min" : "—"}
                         </td>
@@ -991,9 +995,14 @@ export default function App() {
                 Capacité d'un jour = terrains × (horaire ouvert ÷ durée de match). Besoin total : <b>{besoinTotal}</b> matchs
                 (poules + tableaux finaux), dont <b>{besoinDeux}</b> à répartir sur les deux jours, pour une capacité totale de
                 {" "}<b>{Math.floor(capTotal)}</b> matchs. La colonne « Marge » est <b>théorique</b> : elle suppose les terrains
-                occupés en continu. La colonne « Marge réelle » est calculée sur la planification effective (repos de {REPOS} min,
+                occupés en continu et ne déduit que le besoin <b>fixe</b> du jour — les tableaux « les deux jours » n'y sont
+                pas comptés, alors qu'ils se planifient en partie chaque jour (visible dans « Planifié », suffixe
+                « deux-jours »). La colonne « Marge réelle » est calculée sur la planification effective (repos de {REPOS} min,
                 appel, alternance des tours et pauses inclus) : c'est elle qui dit si la journée tient réellement —
-                {" "}<b>une marge théorique positive ne garantit pas que tout se joue dans l'horaire</b>.
+                {" "}<b>une marge théorique positive ne garantit pas que tout se joue dans l'horaire</b>. Une marge réelle
+                négative signifie que le dernier match finit après la fermeture (ex. −201 min = fermeture 17:00, dernier
+                match 20:21) : <b>aucun match n'est supprimé</b>, le moteur planifie tout, même au-delà de l'horaire, et
+                l'écran tournoi l'affiche aussi (⚠️ horaire de fin modifié).
                 {realPlan.unscheduled.length > 0 && <span className="font-semibold text-red-700"> ⚠️ {realPlan.unscheduled.length} match(s) non planifiable(s) avec ces paramètres.</span>}
               </p>
               {(() => {

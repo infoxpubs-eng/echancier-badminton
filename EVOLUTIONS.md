@@ -79,6 +79,30 @@ attente) et la manière dont elle a été résolue.
 
 ---
 
+## 2026-10-01 — Lot 3 (v1.2)
+
+### 1. Clarification de l'estimation de capacité (« comment est calculé le −201 ? ») — ✅ implémenté (v1.2)
+
+- **Demande** : capture d'écran de l'estimation de capacité — « Vois-tu
+  un problème avec l'estimation ? En particulier pour le dimanche,
+  j'ai l'impression que tous les matchs ne sont pas pris en compte,
+  ou alors comment est calculé le −201 ? »
+- **Analyse** : ce n'est pas un bug. « Marge réelle » = fermeture du
+  jour − fin du dernier match planifié (ex. −201 = fermeture 17:00,
+  dernier match 20:21) ; le moteur ne supprime jamais de matchs. La
+  confusion venait de la colonne « Marge » théorique, qui ne déduit
+  que le besoin **fixe** du jour : les tableaux « les deux jours »
+  n'y sont pas comptés alors qu'ils se planifient en partie chaque
+  jour (d'où Besoin fixe dimanche 57 vs Planifié 68 sur la capture).
+- **Résolution** : colonne « Planifié » complétée du suffixe
+  « (N deux-jours) » avec info-bulle de décomposition ; info-bulles
+  explicites sur « Besoin fixe », « Marge », « Planifié », « Marge
+  réelle » ; paragraphe d'explication étendu (définition de la marge
+  réelle négative, rappel qu'aucun match n'est supprimé). Appliqué aux
+  trois versions (React, web, hors-ligne). Métriques inchangées.
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation
