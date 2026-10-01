@@ -212,6 +212,12 @@ function qualLabel(q) {
   if (q.suisse) return (q.r === 0 ? "1er" : (q.r + 1) + "e") + " ronde suisse";
   return ORDINALS[q.r] + " poule " + (q.pi + 1);
 }
+/* exempts du 1er tour d'un tableau final (bracket incomplet) */
+function exemptsTxt(b) {
+  return b.paperRounds && (b.paperRounds[0] || 0) > (b.roundsCount[0] || 0)
+    ? " · " + ((b.paperRounds[0] || 0) - (b.roundsCount[0] || 0)) + " exempt(s) au 1er tour"
+    : "";
+}
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* ---------- code couleur des attentes ----------
@@ -401,10 +407,19 @@ function bracketFromQuals(tid, quals) {
       prev.push(m); finals.push(m);
     }
     let r = 1;
+    // exempt du 1er tour : ce match n'est pas joué — l'inscrit présent dans
+    // le créneau avance sans jouer. Le tour suivant référence donc le
+    // qualifié LUI-MÊME (sorti des poules ou des rondes suisses), jamais un
+    // « Vainqueur Tx-y » fantôme : ce label faisait croire que les demis
+    // dépendaient de quarts absents de l'échéancier (ex. « Vainqueur T1-2 »
+    // alors que T1-2 est un exempt du 1er tour)
+    const adv = (mm) => (mm.round === 0 && mm.bye
+      ? (mm.a !== null && mm.a !== undefined ? mm.a : (mm.b !== null && mm.b !== undefined ? mm.b : mm.fid))
+      : mm.fid);
     while (prev.length > 1) {
       const nxt = [];
       for (let i = 0; i < prev.length / 2; i++)
-        nxt.push({ tid, phase: "finale", round: r, a: prev[2 * i].fid, b: prev[2 * i + 1].fid, fid: "T" + (r + 1) + "-" + (i + 1) });
+        nxt.push({ tid, phase: "finale", round: r, a: adv(prev[2 * i]), b: adv(prev[2 * i + 1]), fid: "T" + (r + 1) + "-" + (i + 1) });
       finals.push(...nxt); prev = nxt; r++;
     }
   }
@@ -906,12 +921,12 @@ function renderConfig() {
       '<p style="font-size:.75rem;color:var(--em);margin:10px 0 0"><b>' + esc(b.label) + "</b> — " +
       (b.suisse
         ? "ronde suisse : " + b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " × " + b.parRonde + " match" + (b.parRonde > 1 ? "s" : "") + " (" + (b.n % 2 === 1 ? "1 exempt par ronde · " : "") + b.poolMs.length + " matchs au total)" +
-          (b.seule ? " — classement final aux victoires puis départages" : " — " + b.Q + " qualifié(s) → élimination directe (" + b.playedFinals.length + " matchs de tableau final)")
+          (b.seule ? " — classement final aux victoires puis départages" : " — " + b.Q + " qualifié(s) → élimination directe (" + b.playedFinals.length + " matchs de tableau final" + exemptsTxt(b) + ")")
         : b.P === 0
-        ? "élimination directe : " + b.n + " " + b.unit + " (" + b.playedFinals.length + " matchs)"
+        ? "élimination directe : " + b.n + " " + b.unit + " (" + b.playedFinals.length + " matchs" + exemptsTxt(b) + ")"
         : b.P === 1
         ? "poule unique de " + b.n + " " + b.unit + " — " + b.poolMs.length + " matchs, classement final de la poule : pas de sortants ni de suite en élimination directe (le champ « Sortants/poule » ne s'applique pas)."
-        : b.P + " poule(s) : " + b.sizes.join(" + ") + " " + b.unit + " (" + b.poolMs.length + " matchs de poule), " + (b.P * b.Q) + " qualifiés, " + b.playedFinals.length + " matchs de tableau final.") +
+        : b.P + " poule(s) : " + b.sizes.join(" + ") + " " + b.unit + " (" + b.poolMs.length + " matchs de poule), " + (b.P * b.Q) + " qualifiés, " + b.playedFinals.length + " matchs de tableau final" + exemptsTxt(b) + ".") +
       (t.jour !== "les-deux" && state.jours[t.jour] && !state.jours[t.jour].actif ? " ⚠️ " + t.jour + " inactif" : "") + cutInfo + "</p>" +
     "</div>";
   };
@@ -1248,7 +1263,7 @@ function viewTab(plan, tid) {
   const hdrStyle = stAll.n
     ? "background:" + attStep(stAll.max).bg + ";color:" + attStep(stAll.max).fg
     : "color:var(--em-d)";
-  return '<div class="card" style="margin-bottom:14px"><h3 style="' + hdrStyle + ';padding:6px 10px;border-radius:8px" title="fond coloré selon le code couleur des attentes : attente maximale du tableau (attentes individuelles et délais ≈ de transition de phase)">' + esc(b.label) + " — " + b.n + " " + b.unit + ", " + (b.suisse ? b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " suisse" + (b.rondes > 1 ? "s" : "") + (b.seule ? " — classement final aux victoires puis départages" : " — " + b.Q + " qualifié(s) → élimination directe") : b.P === 0 ? "élimination directe" : b.P === 1 ? "poule unique — classement final de la poule, sans suite en élimination directe" : b.P + " poule(s), " + b.Q + " sortant(s)/poule") + ", " + ms.length + " matchs planifiés" + (nbForf > 0 ? " · " + nbForf + " W.O." : "") +
+  return '<div class="card" style="margin-bottom:14px"><h3 style="' + hdrStyle + ';padding:6px 10px;border-radius:8px" title="fond coloré selon le code couleur des attentes : attente maximale du tableau (attentes individuelles et délais ≈ de transition de phase)">' + esc(b.label) + " — " + b.n + " " + b.unit + ", " + (b.suisse ? b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " suisse" + (b.rondes > 1 ? "s" : "") + (b.seule ? " — classement final aux victoires puis départages" : " — " + b.Q + " qualifié(s) → élimination directe") : b.P === 0 ? "élimination directe" : b.P === 1 ? "poule unique — classement final de la poule, sans suite en élimination directe" : b.P + " poule(s), " + b.Q + " sortant(s)/poule") + exemptsTxt(b) + ", " + ms.length + " matchs planifiés" + (nbForf > 0 ? " · " + nbForf + " W.O." : "") +
     (plan.cuts[tid] ? " <span style='font-weight:400;font-size:.75rem;opacity:.9'>· jour 2 : à partir des " + plan.cuts[tid].label.toLowerCase() + "</span>" : "") + " <span style='font-weight:400;font-size:.75rem;opacity:.9'>· attente max " + (stAll.n ? attFmt(stAll.max) : "—") + "</span></h3>" +
     '<div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">' + pools + "</div></div>" +
     '<div class="card"><table><thead><tr><th>Jour</th><th>Appel</th><th>Début</th><th>Terrain</th><th title="numéro du match : commence à 1 et s\'incrémente jusqu\'à la fin du tournoi (même index dans toutes les vues et l\'export)">N°</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th></tr></thead><tbody>' + rows + "</tbody></table></div>";

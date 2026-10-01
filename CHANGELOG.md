@@ -191,6 +191,44 @@ attentes estimées ou aux marges réelles identiques au mode classique.
 Aucun changement moteur ni de données : métriques inchangées
 (att60=83, attMax=112, attMoy=54 ; 350 matchs).
 
+## 2026-10-01 — Ordre des tours du tableau final : exempts fantômes (v1.5.1)
+
+Signalement du juge-arbitre (captures d'écran DM Série 4 et SM Série 2) :
+« le match 261 devrait être programmé après le 263 car le 261 et 279
+dépendent des 249 et 263, en somme les 1/4 avant les 1/2 — il en va de
+même pour les 1/8 qui doivent être joués avant les 1/4 ».
+
+1. **Diagnostic** : la planification est correcte — une demi-finale ne
+   démarre jamais avant la fin + repos (20 min) de SES deux sources
+   réelles (invariant vérifié par les tests). L'incohérence venait de
+   l'affichage : dans un bracket incomplet (ex. 6 qualifiés → bracket
+   de 8, 2 exempts), les tours suivants référençaient les exempts par
+   « Vainqueur T1-2 » / « Vainqueur T1-3 » — des matchs **jamais joués
+   ni affichés**. La demi « 261 » affichait donc deux vainqueurs de
+   matchs alors qu'un seul quart l'alimente : elle semblait dépendre
+   du quart joué en parallèle (« 263 »), d'où la lecture fausse d'un
+   ordre 1/2 avant 1/4.
+2. **Correctif moteur (affichage de la structure)** : un exempt du
+   1er tour n'est plus référencé par un match fantôme — le tour
+   suivant référence le qualifié lui-même : la demi affiche
+   désormais « Vainqueur T1-1 contre 1er poule 2 » (l'exempt = tête de
+   série issue des poules), rendant visible qu'elle ne dépend que du
+   quart T1-1 ; l'autre quart (T1-4) alimente l'autre demi et peut se
+   jouer en parallèle — c'est la règle du bracket, pas une anomalie.
+   Corrigé dans les trois versions (React, web, hors-ligne).
+3. **Exempts visibles dans les descriptions** : les tableaux affichent
+   désormais « · N exempt(s) au 1er tour » (cartes de configuration,
+   vue par tableau) — ex. DM Série 4 : « 2 exempts », SM Série 2 :
+   « 4 exempts ».
+4. **Nouveau test** `tests/byes-test.js` : 168 tableaux testés (3 à 30
+   inscrits, poules et rondes suisses, 1 à 3 sortants/poule) — aucune
+   source « Vainqueur Tx-y » fantôme, exempts référencés comme
+   qualifiés, invariant temporel fin + repos 20 min sur toutes les
+   sources, dénombrement des exempts conforme.
+
+Aucun changement de planification ni de données : métriques
+inchangées (att60=83, attMax=112, attMoy=54 ; 350 matchs).
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :

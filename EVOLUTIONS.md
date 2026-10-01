@@ -243,12 +243,32 @@ attente) et la manière dont elle a été résolue.
 
 ---
 
+## 2026-10-01 — Lot 7 : exempts du tableau final (v1.5.1)
+
+Signalement du juge-arbitre : « le match 261 devrait être programmé après
+le 263… les 1/4 avant les 1/2 ». Diagnostic : le moteur était correct (une
+demi ne démarre jamais avant fin + repos de ses vraies sources), mais dans
+les tableaux incomplets (ex. 6 qualifiés → tableau de 8), les tours
+suivants référençaient les créneaux d'exempt par un « Vainqueur Tx-y »
+fantôme — un quart inexistant — d'où l'impression d'un parallélisme
+illégitime demi/quarter.
+
+- **Correctif moteur** : les tours suivant le 1er tour d'un tableau final
+  référencent désormais le qualifié exempté lui-même (plus jamais un
+  « Vainqueur » de match jamais joué).
+- **Exempts affichés** : mention « · N exempt(s) au 1er tour » ajoutée dans
+  les descriptions des tableaux concernés (les 4 endroits par version).
+- **Nouveau test** `byes-test.js` : 168 tableaux, 297 exempts, sources
+  toutes réelles, invariant sources-fid (fin + repos 20 min) vérifié.
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation
 dans les trois versions (app React, web, hors-ligne) → régénération web
 (`tests/regen-web.sh`) → suite complète de tests (`tests/`) → CHANGELOG →
-commit descriptif → push. La suite compte 11 fichiers de test (dont
-`presets-test.js` depuis la v1.5). Les métriques de référence (base 350 matchs :
+commit descriptif → push. La suite compte 12 fichiers de test (dont
+`presets-test.js` depuis la v1.5 et `byes-test.js` depuis la v1.5.1). Les métriques de référence (base 350 matchs :
 att60 = 83, max 112, moy 54 ; finalesFin 93/124/57 ; poules→demis ≤ 150 min)
 servent de garde-fous de régression.

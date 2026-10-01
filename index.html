@@ -163,6 +163,11 @@ const qualLabel = (q) => {
   if (q.suisse) return (q.r === 0 ? "1er" : (q.r + 1) + "e") + " ronde suisse";
   return ORDINALS[q.r] + " poule " + (q.pi + 1);
 };
+/* exempts du 1er tour d'un tableau final (bracket incomplet) : les
+   qualifiés semés qui avancent sans jouer, comptés dans paperRounds */
+const exemptsTxt = (b) => (b.paperRounds && (b.paperRounds[0] || 0) > (b.roundsCount[0] || 0)
+  ? " · " + ((b.paperRounds[0] || 0) - (b.roundsCount[0] || 0)) + " exempt(s) au 1er tour"
+  : "");
 
 /* ---------- code couleur des attentes ----------
    Attente d'un match = temps TOTAL depuis la fin du match précédent
@@ -247,10 +252,19 @@ function bracketFromQuals(tid, quals) {
       prev.push(m); finals.push(m);
     }
     let r = 1;
+    // exempt du 1er tour : ce match n'est pas joué — l'inscrit présent dans
+    // le créneau avance sans jouer. Le tour suivant référence donc le
+    // qualifié LUI-MÊME (sorti des poules ou des rondes suisses), jamais un
+    // « Vainqueur Tx-y » fantôme : ce label faisait croire que les demis
+    // dépendaient de quarts absents de l'échéancier (ex. « Vainqueur T1-2 »
+    // alors que T1-2 est un exempt du 1er tour)
+    const adv = (mm) => (mm.round === 0 && mm.bye
+      ? (mm.a !== null && mm.a !== undefined ? mm.a : (mm.b !== null && mm.b !== undefined ? mm.b : mm.fid))
+      : mm.fid);
     while (prev.length > 1) {
       const nxt = [];
       for (let i = 0; i < prev.length / 2; i++)
-        nxt.push({ tid, phase: "finale", round: r, a: prev[2 * i].fid, b: prev[2 * i + 1].fid, fid: "T" + (r + 1) + "-" + (i + 1) });
+        nxt.push({ tid, phase: "finale", round: r, a: adv(prev[2 * i]), b: adv(prev[2 * i + 1]), fid: "T" + (r + 1) + "-" + (i + 1) });
       finals.push(...nxt); prev = nxt; r++;
     }
   }
@@ -1251,13 +1265,13 @@ function App() {
                   {" "}({b.n % 2 === 1 ? "1 exempt par ronde · " : ""}{b.poolMs.length} matchs au total)
                   {b.seule
                     ? " — classement final aux victoires puis départages"
-                    : " — " + b.Q + " qualifié(s) → élimination directe (" + b.playedFinals.length + " matchs de tableau final)"}</span>}
-                  {!b.suisse && b.P === 0 && <span>élimination directe : {b.n} {b.unit} ({b.playedFinals.length} matchs)</span>}
+                    : " — " + b.Q + " qualifié(s) → élimination directe (" + b.playedFinals.length + " matchs de tableau final" + exemptsTxt(b) + ")"}</span>}
+                  {!b.suisse && b.P === 0 && <span>élimination directe : {b.n} {b.unit} ({b.playedFinals.length} matchs{exemptsTxt(b)})</span>}
                   {!b.suisse && b.P === 1 && <span>poule unique de {b.n} {b.unit} — {b.poolMs.length} matchs, classement final de
                   la poule : pas de sortants ni de suite en élimination directe (le champ « Sortants / poule » ne
                   s'applique pas).</span>}
                   {!b.suisse && b.P > 1 && <span>{b.P} poule(s) : {b.sizes.join(" + ")} {b.unit} ({b.poolMs.length} matchs de poule),
-                  {" "}{b.Q} sortant(s)/poule → {b.P * b.Q} qualifiés, {b.playedFinals.length} matchs de tableau final
+                  {" "}{b.Q} sortant(s)/poule → {b.P * b.Q} qualifiés, {b.playedFinals.length} matchs de tableau final{exemptsTxt(b)}
                   (dont finale : {roundName(1).toLowerCase()} à {roundName(b.roundsCount[0] || 1).toLowerCase()}).</span>}
                   {t.jour !== "les-deux" && jours[t.jour] && !jours[t.jour].actif && " ⚠️ " + t.jour + " inactif"}
                   {t.jour === "les-deux" && (() => {
@@ -1662,7 +1676,7 @@ function App() {
                 title="fond coloré selon le code couleur des attentes : attente maximale du tableau (attentes individuelles et délais ≈ de transition de phase)">{b.label} — {b.n} {b.unit}, {b.suisse
                 ? b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " suisse" + (b.rondes > 1 ? "s" : "")
                   + (b.seule ? " — classement final aux victoires" : " — " + b.Q + " qualifié(s) → élimination directe")
-                : b.P === 0 ? "élimination directe" : b.P === 1 ? "poule unique — classement final de la poule, sans suite en élimination directe" : b.P + " poule(s), " + b.Q + " sortant(s)/poule"}, {ms.length} matchs planifiés{nbForf > 0 ? " · " + nbForf + " W.O." : ""}
+                : b.P === 0 ? "élimination directe" : b.P === 1 ? "poule unique — classement final de la poule, sans suite en élimination directe" : b.P + " poule(s), " + b.Q + " sortant(s)/poule"}{exemptsTxt(b)}, {ms.length} matchs planifiés{nbForf > 0 ? " · " + nbForf + " W.O." : ""}
                 {plan.cuts[b.tid] && <span className="ml-2 text-xs font-normal text-emerald-600">· jour 2 : à partir des {plan.cuts[b.tid].label.toLowerCase()}</span>} · attente max {stAll.n ? attFmt(stAll.max) : "—"}</div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {b.suisse && (
