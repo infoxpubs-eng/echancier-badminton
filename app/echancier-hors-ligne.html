@@ -245,6 +245,13 @@ const vlbl = (plan, m, s) => {
   const n = srcNumMap(plan).get(m.tid + "|" + s);
   return "Vainqueur " + (n !== undefined ? n : s);
 };
+/* tri des listes multi-jours d'un même tableau : TOUS les matchs du
+   samedi dans l'ordre chronologique, puis ceux du dimanche, puis des
+   jours suivants — jamais de dimanche avant un samedi (vues « par
+   classement » et « par tableau », où les journées se côtoient) */
+const ordMatches = (plan) => (x, y) =>
+  plan.days.indexOf(x.day) - plan.days.indexOf(y.day) ||
+  x.time - y.time || x.court - y.court;
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -1255,7 +1262,8 @@ function viewSynthese(plan, statsJour) {
 function viewClassement(plan) {
   const mduree = (m) => (m.duree !== undefined ? m.duree : dureeCalc());
   const blocks = plan.built.map((b) => {
-    const ms = plan.sched.filter((m) => m.tid === b.tid).sort((x, y) => x.time - y.time);
+    // tous les matchs du samedi d'abord, puis ceux du dimanche (v1.7.1)
+    const ms = plan.sched.filter((m) => m.tid === b.tid).sort(ordMatches(plan));
     if (!ms.length) return "";
     const st = attStats(ms);
     const stAll = attStatsAll(ms);
@@ -1281,7 +1289,8 @@ function viewClassement(plan) {
 
 function viewTab(plan, tid) {
   const b = plan.built[tid];
-  const ms = plan.sched.filter((m) => m.tid === tid).sort((x, y) => x.time - y.time);
+  // tous les matchs du samedi d'abord, puis ceux du dimanche (v1.7.1)
+  const ms = plan.sched.filter((m) => m.tid === tid).sort(ordMatches(plan));
   const nbForf = plan.forfaits.filter((m) => m.tid === tid).length;
   const pools = b.suisse
     ? '<div class="poolbox"><b style="color:var(--em-d)">' + b.n + " " + b.unit + '</b><br><span style="color:var(--em)">ronde suisse : ' + b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + (b.n % 2 === 1 ? " · 1 exempt par ronde" : "") + (b.seule ? " · classement final aux victoires" : " · " + b.Q + " qualifié(s) en élimination directe") + "</span>" +

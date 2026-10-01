@@ -1,4 +1,7 @@
 /* Test v1.7 : ordre canonique des jours + libellés « Vainqueur N° ».
+   v1.7.1 : listes multi-jours (par classement, par tableau) — samedi
+   avant dimanche, la tri par heure seule faisait passer le dimanche
+   08:30 avant le samedi 17:43.
    Demandes du juge-arbitre :
    1. « les matchs du Dimanche devraient être indiqués après ceux du
       samedi » — même si une configuration enregistrée présente les
@@ -68,6 +71,20 @@ const harness = engine + `
   const demiW = planW.sched.find((m) => m.tid === 0 && m.fid === "T2-1");
   ok("repli forfait : « Vainqueur T1-1 » conservé (match non planifié)",
      demiW !== undefined && vlbl(planW, demiW, "T1-1") === "Vainqueur T1-1", vlbl(planW, demiW, "T1-1"));
+
+  /* ---- 5. v1.7.1 : listes multi-jours d'un tableau « les deux jours » ----
+     régression : les vues par classement/par tableau triaient par heure
+     seule — le dimanche 08:30 s'affichait avant le samedi 17:43 */
+  const D2 = { samedi: { actif: true, terrains: 8, debut: "08:30", fin: "13:00" }, dimanche: { actif: true, terrains: 8, debut: "08:30", fin: "17:00" } };
+  const planD = computePlan([{ disc: "DX", classement: "Série 3", nb: 12, qualifs: 2, jour: "les-deux" }], D2, 28, 0);
+  const msD = planD.sched.filter((m) => m.tid === 0).slice().sort(ordMatches(planD));
+  const idxDim = msD.findIndex((m) => m.day === "dimanche");
+  ok("les-deux : le tableau a des matchs sur les deux jours", idxDim > 0 && msD.length - idxDim > 0, "matchs dim=" + (msD.length - idxDim));
+  ok("liste multi-jours : le premier match du dimanche arrive APRÈS tous ceux du samedi",
+     idxDim > 0 && msD.slice(0, idxDim).every((m) => m.day === "samedi"), "premier dim en position " + idxDim + "/" + msD.length);
+  const cle = (m) => planD.days.indexOf(m.day) * 1e6 + m.time * 10 + m.court;
+  ok("liste multi-jours : ordre croissant (jour, puis heure, puis terrain)",
+     msD.every((m, i) => i === 0 || cle(m) >= cle(msD[i - 1])), "");
 })();
 `;
 eval(harness);

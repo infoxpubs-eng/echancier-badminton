@@ -310,6 +310,24 @@ indique le numéro de match dont il est vainqueur (ex. "Vainqueur 169") ».
 
 ---
 
+## 2026-10-01 — Lot 10 : correctif listes multi-jours (v1.7.1)
+
+Le juge-arbitre signale que le dimanche s'affichait toujours avant le
+samedi dans la vue « Par classement ». Diagnostic : les listes qui
+mélangent les journées d'un même tableau (« les deux jours ») triaient
+par heure seule — le dimanche 08:30 passait avant le samedi 17:43. La
+v1.7 avait corrigé l'ordre des sections par jour, pas celui de ces
+listes.
+
+- **Helper `ordMatches`** : tri jour-d'abord (ordre canonique), puis
+  heure, puis terrain — appliqué aux vues « Par classement » et
+  « Par tableau » des trois versions.
+- **Test étendu** `ordre-jours-test.js` : les-deux-jours — premier
+  match du dimanche après tous ceux du samedi, ordre (jour, heure,
+  terrain) croissant.
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation

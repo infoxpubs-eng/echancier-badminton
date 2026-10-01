@@ -176,6 +176,13 @@ const vlbl = (plan, m, s) => {
   const n = srcNumMap(plan).get(m.tid + "|" + s);
   return "Vainqueur " + (n !== undefined ? n : s);
 };
+/* tri des listes multi-jours d'un même tableau : TOUS les matchs du
+   samedi dans l'ordre chronologique, puis ceux du dimanche, puis des
+   jours suivants — jamais de dimanche avant un samedi (vues « par
+   classement » et « par tableau », où les journées se côtoient) */
+const ordMatches = (plan) => (x, y) =>
+  plan.days.indexOf(x.day) - plan.days.indexOf(y.day) ||
+  x.time - y.time || x.court - y.court;
 
 
 /* ---------- code couleur des attentes ----------
@@ -1636,7 +1643,8 @@ export default function App() {
               organisationnel : elle dépend de la durée réelle des matchs.
             </p>
             {plan.built.map((b) => {
-              const ms = plan.sched.filter((m) => m.tid === b.tid).sort((x, y) => x.time - y.time);
+              // tous les matchs du samedi d'abord, puis ceux du dimanche (v1.7.1)
+              const ms = plan.sched.filter((m) => m.tid === b.tid).sort(ordMatches(plan));
               if (!ms.length) return null;
               const st = attStats(ms);
               const stAll = attStatsAll(ms);
@@ -1684,7 +1692,8 @@ export default function App() {
       {/^t[0-9]+$/.test(vueTab) && (() => {
         const b = plan.built[+vueTab.slice(1)];
         if (!b) return null;
-        const ms = plan.sched.filter((m) => m.tid === b.tid).sort((a, b2) => a.time - b2.time);
+        // tous les matchs du samedi d'abord, puis ceux du dimanche (v1.7.1)
+        const ms = plan.sched.filter((m) => m.tid === b.tid).sort(ordMatches(plan));
         const nbForf = plan.forfaits.filter((m) => m.tid === b.tid).length;
         const stAll = attStatsAll(ms);
         return (

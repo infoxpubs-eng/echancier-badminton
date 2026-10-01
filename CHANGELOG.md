@@ -296,6 +296,27 @@ s'affichaient avant ceux du samedi ; sources du tableau final libellées
 Aucun changement de planification : métriques de référence inchangées
 (att60=75, attMax=112, attMoy=51 ; finalesFin 77/112/52 ; 350 matchs).
 
+## 2026-10-01 — Correctif : dimanche avant samedi dans les vues multi-jours (v1.7.1)
+
+Le juge-arbitre signale que la v1.7 ne réglait pas le problème dans la
+vue « Par classement » (capture d'écran : les matchs du dimanche —
+N° 183-185, 08:30 — s'affichaient avant ceux du samedi — N° 150-165,
+17:43+). Cause : ces listes triaient les matchs d'un tableau « les deux
+jours » par **heure seule** — le dimanche 08:30 passait donc avant le
+samedi 17:43. La v1.7 avait corrigé l'ordre des sections par jour
+(planning, configuration, numérotation) mais pas celui des listes qui
+mélangent les journées d'un même tableau.
+
+1. **Tri jour-d'abord** : les vues « Par classement » et « Par tableau »
+   trient désormais par jour (ordre canonique), puis heure, puis
+   terrain — tous les matchs du samedi dans l'ordre, puis ceux du
+   dimanche, puis des jours suivants. Nouveau helper moteur
+   `ordMatches` partagé par les trois versions.
+2. **Test étendu** (`tests/ordre-jours-test.js`) : un tableau « les
+   deux jours » vérifie que le premier match du dimanche arrive après
+   tous ceux du samedi et que l'ordre (jour, heure, terrain) est
+   croissant.
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :
