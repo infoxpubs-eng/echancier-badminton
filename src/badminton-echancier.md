@@ -1305,7 +1305,7 @@ export default function App() {
                     const totalM = b.poolMs.length + b.playedFinals.length;
                     if (!ms.length) return (
                       <tr key={b.tid} className="border-b border-emerald-50">
-                        <td className="py-1.5"><span className={"rounded px-2 py-0.5 text-xs font-semibold " + (DISC_COLORS[b.tab.disc] || "")}>{b.label}</span></td>
+                        <td className="py-1.5"><span className={"rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap " + (DISC_COLORS[b.tab.disc] || "")}>{b.label}</span></td>
                         <td className="font-mono">{b.n}</td>
                         <td colSpan={7} className="text-xs text-red-600">aucun match planifié (jour inactif ?) — {totalM - nbForf} matchs en attente{nbForf > 0 ? " · " + nbForf + " W.O." : ""}</td>
                       </tr>
@@ -1321,7 +1321,7 @@ export default function App() {
                     const dep = dernM.end > finOff ? Math.round(dernM.end - finOff) : 0;
                     return (
                       <tr key={b.tid} className="border-b border-emerald-50">
-                        <td className="py-1.5"><span className={"rounded px-2 py-0.5 text-xs font-semibold " + (DISC_COLORS[b.tab.disc] || "")}>{b.label}</span></td>
+                        <td className="py-1.5"><span className={"rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap " + (DISC_COLORS[b.tab.disc] || "")}>{b.label}</span></td>
                         <td className="font-mono">{b.n}</td>
                         <td className="text-xs">{b.suisse
                           ? <span className="text-emerald-600">ronde suisse ({b.rondes})</span>
@@ -1394,7 +1394,7 @@ export default function App() {
                   <td className="font-mono">{finis[m.key] ? <s>{fmtTime(m.time)}</s> : fmtTime(m.time)}</td>
                   <td><span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">T{m.court + 1}</span></td>
                   <td className="font-mono text-xs font-semibold text-emerald-700">{m.num}</td>
-                  <td><span className={"rounded px-2 py-0.5 text-xs font-semibold " + (DISC_COLORS[plan.built[m.tid].tab.disc] || "")}>{plan.built[m.tid].label}</span></td>
+                  <td><span className={"rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap " + (DISC_COLORS[plan.built[m.tid].tab.disc] || "")}>{plan.built[m.tid].label}</span></td>
                   <td className="text-xs text-emerald-600">{tourLabel(m, plan.built[m.tid])}</td>
                   <td>
                     {m.phase === "poule"
@@ -1452,7 +1452,7 @@ export default function App() {
                 <div key={b.tid} className={cardCls}>
                   <div className={"mb-2 flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 " + (stAll.n ? attStep(stAll.max).cls : "bg-slate-100 text-slate-600")}
                     title="fond coloré selon le code couleur des attentes : attente maximale du tableau (attentes individuelles et délais ≈ de transition de phase)">
-                    <span className={"rounded px-2 py-0.5 text-sm font-semibold " + (DISC_COLORS[b.tab.disc] || "")}>{b.label}</span>
+                    <span className={"rounded px-2 py-0.5 text-sm font-semibold whitespace-nowrap " + (DISC_COLORS[b.tab.disc] || "")}>{b.label}</span>
                     <span className="text-xs font-normal">
                       {ms.length} matchs · appel {fmtTime(prem)} → fin {fmtTime(dern)} · attente max {stAll.n ? attFmt(stAll.max) : "—"} · moy {stAll.n ? attFmt(stAll.moy) : "—"}
                     </span>

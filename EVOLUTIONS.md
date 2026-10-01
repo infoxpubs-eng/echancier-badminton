@@ -79,6 +79,40 @@ attente) et la manière dont elle a été résolue.
 
 ---
 
+## 2026-10-01 — Lot 5 (v1.4)
+
+### 1. Nom du tableau sur deux lignes dans la première colonne — ✅ implémenté (v1.4)
+
+- **Demande** (capture de la vue « Structure des tableaux ») : « Au
+  niveau de l'affichage peux-tu faire en sorte que le nom du tableau
+  dans la première colonne tienne sur une ligne et non deux ? »
+- **Analyse** : les badges de tableau des versions React et web
+  n'interdisaient pas le retour à la ligne — sur iPad, « DX Série 1 »
+  s'affichait « DX » puis « Série 1 ». La version hors-ligne avait déjà
+  `white-space: nowrap` sur `.badge`.
+- **Résolution** : les 4 badges des versions React et web passent en
+  `whitespace-nowrap` (vue d'ensemble, planning par jour, en-têtes par
+  classement/tableau) ; la colonne s'élargit, le tableau défile
+  horizontalement si l'écran est étroit. Aucun changement moteur.
+
+### 2. Confirmation du comportement « les deux jours » — ✅ validé (v1.3, sans changement)
+
+- **Demande** : « Le DX 1 n'a pas besoin de démarrer tard le dimanche
+  ou à la suite de l'horaire du samedi — les matchs peuvent être
+  programmés en matinée ou ailleurs dans la journée. Est-ce ok aussi
+  pour toi ? »
+- **Analyse** : la capture fournie montrait l'état d'avant correctif
+  v1.3 (demis du dimanche à 17:09, finale à 18:30 — le −118 min de la
+  capture précédente). Le correctif v1.3 répond exactement au besoin :
+  le jour 2 ne s'ancre plus sur l'horloge du jour 1 ; les matchs du
+  tableau étalé démarrent à l'ouverture du jour (08:30) ou s'intercalent
+  librement dans la journée selon la disponibilité des terrains.
+- **Résolution** : rien à changer — comportement conforme (vérifié par
+  `tests/deux-jours-test.js` : reprise à 08:30, ordre des tours, repos
+  20 min, marge réelle dimanche positive).
+
+---
+
 ## 2026-10-01 — Lot 4 (v1.3)
 
 ### 1. Marge réelle dimanche incohérente avec un tableau étalé sur deux jours — ✅ implémenté (v1.3)

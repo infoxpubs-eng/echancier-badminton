@@ -134,3 +134,20 @@ Le diagnostic de l'utilisateur était juste : sans étaler le DX 1, le
 problème disparaissait (aucune dépendance inter-jours). Après correctif,
 étaler un tableau sur deux jours redevient cohérent : le jour 2 reprend
 à l'ouverture, toutes vues alignées (React, web, hors-ligne).
+
+## 2026-10-01 — Nom du tableau sur une seule ligne (v1.4)
+
+Demande du juge-arbitre (capture de la vue « Structure des tableaux ») :
+« Peux-tu faire en sorte que le nom du tableau dans la première colonne
+tienne sur une ligne et non deux ? »
+
+1. **Badge de tableau insécable** : dans la version React et la version
+   web, le nom du tableau (« DX Série 1 ») se répartissait sur deux
+   lignes à l'intérieur du badge coloré (« DX » puis « Série 1 ») dès
+   que la colonne était étroite (iPad). Les 4 badges (vue d'ensemble,
+   planning par jour, en-têtes des vues par classement/tableau)
+   deviennent insécables (`whitespace-nowrap`) : la colonne s'élargit
+   et le tableau défile horizontalement si nécessaire. La version
+   hors-ligne disposait déjà de la règle (`white-space: nowrap` sur
+   `.badge`) — aucun changement moteur ni de données, métriques
+   inchangées.
