@@ -185,9 +185,23 @@ const attStats = (ms) => {
     moy: ws.length ? Math.round(ws.reduce((a, b) => a + b, 0) / ws.length) : 0,
   };
 };
-function AttBadge({ att }) {
-  if (att === null || att === undefined)
+/* attentes « combinées » d'un tableau : attentes individuelles ET délais
+   de transition de phase (≈, premier tour d'élimination directe) — sert au
+   fond de couleur de l'en-tête des vues par tableau/classement */
+const attStatsAll = (ms) => {
+  const ws = ms.map((m) => (m.att !== null && m.att !== undefined ? m.att : ((m.attPhase !== null && m.attPhase !== undefined) ? m.attPhase : null))).filter((w) => w !== null);
+  return {
+    n: ws.length,
+    max: ws.length ? Math.max(...ws) : 0,
+    moy: ws.length ? Math.round(ws.reduce((a, b) => a + b, 0) / ws.length) : 0,
+  };
+};
+function AttBadge({ att, phase }) {
+  if (att === null || att === undefined) {
+    if (phase !== null && phase !== undefined)
+      return <span title="délai entre la fin estimée du dernier match de la phase précédente du tableau (poules ou rondes suisses) et le début de ce match d'élimination directe — attente individuelle non applicable : qualifiés issus des poules" className={"rounded px-1.5 py-0.5 text-[10px] font-semibold italic " + attStep(phase).cls}>≈ {attFmt(phase)}</span>;
     return <span title="premier tour du joueur ou de la paire : attente non applicable" className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">—</span>;
+  }
   return <span title={"attente totale depuis la fin du match précédent, repos de " + REPOS + " min inclus, pour le joueur ou la paire la plus attendu(e) du match"} className={"rounded px-1.5 py-0.5 text-[10px] font-semibold " + attStep(att).cls}>{attFmt(att)}</span>;
 }
 /* parcours d'un tableau sous forme "Poules → Quarts → Demis → Finale",
@@ -444,6 +458,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
   const perDay = {};
   const dayDuree = {}; // jour -> durée planifiée effective de ses matchs
   const lastEnd = new Map(); // clé participant -> fin du dernier match (jour courant)
+  const poolEndAll = new Map(); // tid -> fin de la dernière poule/ronde planifiée (tous jours confondus)
   for (const day of days) {
     const j = jours[day];
     const dureeJ = resDuree(day);
@@ -615,6 +630,11 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
           if (e !== undefined) { found = true; peMin = Math.min(peMin, e); }
         });
         m.att = found ? time - peMin : null;
+        // premier tour d'élimination directe (qualifiés issus des poules
+        // ou des rondes suisses) : attente individuelle non applicable —
+        // on mémorise le délai depuis la fin estimée de la dernière poule/
+        // ronde du tableau (badge « ≈ », indicateur organisationnel)
+        m.attPhase = found ? null : (poolEndAll.get(m.tid) !== undefined ? time - poolEndAll.get(m.tid) : null);
       }
       m.scheduled = true; m.day = day; m.time = time; m.court = ci; m.appel = time - APPEL; m.duree = dureeJ;
       courts[ci] = time + dureeJ;
@@ -623,6 +643,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
         st[m.tid].poolLeft--;
         if (m.suisse) st[m.tid].swissLeft[m.round] = (st[m.tid].swissLeft[m.round] || 1) - 1;
         st[m.tid].poolEnd = Math.max(st[m.tid].poolEnd ?? 0, time + dureeJ);
+        poolEndAll.set(m.tid, Math.max(poolEndAll.get(m.tid) ?? 0, time + dureeJ));
         poolPlayEnd = Math.max(poolPlayEnd, time + dureeJ);
       } else {
         st[m.tid].roundLeft[m.round] = (st[m.tid].roundLeft[m.round] || 1) - 1;
@@ -631,6 +652,14 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
       (perDay[day] = perDay[day] || []).push(m);
       sched.push(m);
     }
+  }
+  // numérotation des matchs (1 → fin du tournoi) : ordre chronologique,
+  // jour par jour puis heure puis terrain — le même numéro désigne le
+  // même match dans toutes les vues et dans l'export CSV
+  let num = 0;
+  for (const day of days) {
+    (perDay[day] || []).slice().sort((a, b) => a.time - b.time || a.court - b.court)
+      .forEach((m) => { m.num = ++num; });
   }
   // attentes par participant (jour par jour)
   const attentes = [];
@@ -656,6 +685,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
     const ad = allowed(m);
     m.day = ad.length ? ad[0] : (days.length ? days[0] : null);
     m.att = null;
+    m.attPhase = null;
   });
   return { sched, perDay, built, days, unscheduled: items.filter((m) => !m.scheduled && !m.forfait), attentes, cuts, forfaits: forfList };
 }
@@ -936,13 +966,27 @@ function App() {
             else besoinDeux += n;
           });
           const capTotal = joursKeys.reduce((s, j) => s + (jours[j].actif ? capJour(j) : 0), 0);
+          // planification réelle avec les paramètres courants : capacité
+          // réellement consommée et fin effective de chaque journée — le
+          // repos de {REPOS} min, l'alternance et le déroulé par tours font
+          // que la capacité réelle est plus faible que la capacité théorique
+          const realPlan = computePlan(tabs, jours, dureeMatch, marge, combosTox, finalesFin, forfaitsSet);
+          const realJour = {};
+          joursKeys.forEach((j) => {
+            const rms = realPlan.perDay[j] || [];
+            const finReelle = rms.length ? Math.max(...rms.map((m) => m.time + (m.duree !== undefined ? m.duree : dureeJour(j)))) : null;
+            realJour[j] = {
+              nb: rms.length,
+              margeReelle: finReelle === null ? null : toMin(jours[j].fin, 18 * 60) - finReelle,
+            };
+          });
           return (
             <div className={cardCls}>
               <h4 className="mb-2 font-semibold text-emerald-900">📊 Estimation de capacité (matchs jouables)</h4>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs uppercase text-emerald-600">
-                    <th className="py-1">Jour</th><th>Capacité</th><th>Besoin fixe</th><th>Les deux jours</th><th>Marge</th>
+                    <th className="py-1">Jour</th><th>Capacité</th><th>Besoin fixe</th><th>Les deux jours</th><th>Marge</th><th title="matchs réellement planifiés avec les paramètres courants (repos et alternance inclus)">Planifié</th><th title="marge en minutes entre la fin réelle de la journée planifiée et l'horaire de fermeture — négatif = la journée ne tient pas">Marge réelle</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -959,6 +1003,10 @@ function App() {
                         <td className={"font-mono font-semibold " + (jours[j].actif && marge < 0 ? "text-red-700" : "text-emerald-700")}>
                           {jours[j].actif ? (marge >= 0 ? "✓ +" + marge : "⚠ " + marge) : "—"}
                         </td>
+                        <td className="font-mono">{jours[j].actif ? realJour[j].nb : "—"}</td>
+                        <td className={"font-mono font-semibold " + (jours[j].actif && realJour[j].margeReelle !== null && realJour[j].margeReelle < 0 ? "text-red-700" : "text-emerald-700")}>
+                          {jours[j].actif && realJour[j].margeReelle !== null ? (realJour[j].margeReelle >= 0 ? "✓ +" + realJour[j].margeReelle : "⚠ " + realJour[j].margeReelle) + " min" : "—"}
+                        </td>
                       </tr>
                     );
                   })}
@@ -967,8 +1015,11 @@ function App() {
               <p className="mt-2 text-xs text-emerald-600">
                 Capacité d'un jour = terrains × (horaire ouvert ÷ durée de match). Besoin total : <b>{besoinTotal}</b> matchs
                 (poules + tableaux finaux), dont <b>{besoinDeux}</b> à répartir sur les deux jours, pour une capacité totale de
-                {" "}<b>{Math.floor(capTotal)}</b> matchs. Capacité théorique maximale — l'ordonnancement réel (repos de {REPOS} min,
-                alternance) peut en jouer un peu moins.
+                {" "}<b>{Math.floor(capTotal)}</b> matchs. La colonne « Marge » est <b>théorique</b> : elle suppose les terrains
+                occupés en continu. La colonne « Marge réelle » est calculée sur la planification effective (repos de {REPOS} min,
+                appel, alternance des tours et pauses inclus) : c'est elle qui dit si la journée tient réellement —
+                {" "}<b>une marge théorique positive ne garantit pas que tout se joue dans l'horaire</b>.
+                {realPlan.unscheduled.length > 0 && <span className="font-semibold text-red-700"> ⚠️ {realPlan.unscheduled.length} match(s) non planifiable(s) avec ces paramètres.</span>}
               </p>
               {(() => {
                 const builtAll = tabs.map((t, k) => buildTab(t, k));
@@ -1113,11 +1164,11 @@ function App() {
   const attMaxAll = plan.sched.filter((m) => m.att !== null).reduce((s, m) => Math.max(s, m.att), 0);
   /* export CSV de l'échéancier complet (toutes les journées) */
   const exportCsv = () => {
-    const rows = [["Jour", "Appel", "Debut", "Terrain", "Tableau", "Tour", "Rencontre", "Attente"]];
+    const rows = [["Jour", "Appel", "Debut", "Terrain", "N°", "Tableau", "Tour", "Rencontre", "Attente"]];
     plan.days.forEach((day) => {
       (plan.perDay[day] || []).slice().sort((a, b) => a.time - b.time || a.court - b.court).forEach((m) => {
         rows.push([
-          day, fmtTime(m.appel), fmtTime(m.time), "T" + (m.court + 1),
+          day, fmtTime(m.appel), fmtTime(m.time), "T" + (m.court + 1), m.num,
           plan.built[m.tid].label, tourLabel(m, plan.built[m.tid]),
           m.phase === "poule" ? m.a + " vs " + m.b : qualLabel(m.a) + " vs " + qualLabel(m.b),
           m.att === null || m.att === undefined ? "" : attFmt(m.att),
@@ -1234,7 +1285,10 @@ function App() {
         ))}
         — plus c'est vert, plus le joueur/la paire enchaîne vite après son tour précédent ; orange à rouge = longue attente.
         Objectif : toutes les attentes &lt; 1h. Colonne ATTENTE : « — » = premier tour du joueur/de la paire
-        (attente non applicable), le tour du match est indiqué uniquement dans la colonne TOUR. Les horaires sont
+        (attente non applicable), badge « ≈ » = délai depuis la fin de la phase précédente du tableau (premier
+        tour d'élimination directe issu des poules/rondes suisses). Colonne N° : numéro du match, de 1 à la fin du
+        tournoi, identique dans toutes les vues et l'export CSV. Le tour du match est indiqué dans la colonne TOUR.
+        Les horaires sont
         donnés à titre indicatif : en cas de dépassement réel,
         le repos de {REPOS} min passe avant l'heure affichée — les matchs suivants sont décalés, jamais compressés,
         sauf accord du juge-arbitre ou des joueurs/paires.
@@ -1334,7 +1388,7 @@ function App() {
             let pausePending = hasPause;
             const pauseRow = () => (
               <tr key="pause" className="border-b border-amber-100 bg-amber-50">
-                <td colSpan={live ? 8 : 7} className="py-1.5 text-center text-xs font-semibold text-amber-800">
+                <td colSpan={live ? 9 : 8} className="py-1.5 text-center text-xs font-semibold text-amber-800">
                   🍽️ Pause Déjeuner/Remise médailles · {fmtTime(pd)} → {fmtTime(pf)} — aucun match pendant la pause
                 </td>
               </tr>
@@ -1347,6 +1401,7 @@ function App() {
                   <td className="py-1.5 font-mono text-amber-700">{finis[m.key] ? <s>{fmtTime(m.appel)}</s> : fmtTime(m.appel)}</td>
                   <td className="font-mono">{finis[m.key] ? <s>{fmtTime(m.time)}</s> : fmtTime(m.time)}</td>
                   <td><span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">T{m.court + 1}</span></td>
+                  <td className="font-mono text-xs font-semibold text-emerald-700">{m.num}</td>
                   <td><span className={"rounded px-2 py-0.5 text-xs font-semibold " + (DISC_COLORS[plan.built[m.tid].tab.disc] || "")}>{plan.built[m.tid].label}</span></td>
                   <td className="text-xs text-emerald-600">{tourLabel(m, plan.built[m.tid])}</td>
                   <td>
@@ -1354,7 +1409,7 @@ function App() {
                       ? <span>{m.a} <span className="text-emerald-400">vs</span> {m.b}</span>
                       : <span className="text-emerald-700">{qualLabel(m.a)} <span className="text-emerald-400">contre</span> {qualLabel(m.b)}</span>}
                   </td>
-                  <td><AttBadge att={m.att} /></td>
+                  <td><AttBadge att={m.att} phase={m.attPhase} /></td>
                   {live && (
                     <td className="no-print">
                       <button className={"mr-1 rounded px-2 py-0.5 text-xs font-bold " + (finis[m.key] ? "bg-emerald-600 text-white" : "border border-emerald-300 text-emerald-700 hover:bg-emerald-50")}
@@ -1374,7 +1429,7 @@ function App() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-left text-xs uppercase text-emerald-600">
-                      <th className="py-1">Appel</th><th>Début</th><th>Terrain</th><th>Tableau</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th>
+                      <th className="py-1">Appel</th><th>Début</th><th>Terrain</th><th title="numéro du match : commence à 1 et s'incrémente jusqu'à la fin du tournoi (même index dans toutes les vues et l'export)">N°</th><th>Tableau</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th>
                       {live && <th className="no-print">Direct</th>}
                     </tr>
                   </thead>
@@ -1398,20 +1453,22 @@ function App() {
               const ms = plan.sched.filter((m) => m.tid === b.tid).sort((x, y) => x.time - y.time);
               if (!ms.length) return null;
               const st = attStats(ms);
+              const stAll = attStatsAll(ms);
               const prem = Math.min(...ms.map((m) => m.appel));
               const dern = Math.max(...ms.map((m) => m.time + mduree(m)));
               return (
                 <div key={b.tid} className={cardCls}>
-                  <h3 className="mb-2 flex flex-wrap items-center gap-2 text-emerald-900">
+                  <div className={"mb-2 flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 " + (stAll.n ? attStep(stAll.max).cls : "bg-slate-100 text-slate-600")}
+                    title="fond coloré selon le code couleur des attentes : attente maximale du tableau (attentes individuelles et délais ≈ de transition de phase)">
                     <span className={"rounded px-2 py-0.5 text-sm font-semibold " + (DISC_COLORS[b.tab.disc] || "")}>{b.label}</span>
-                    <span className="text-xs font-normal text-emerald-600">
-                      {ms.length} matchs · appel {fmtTime(prem)} → fin {fmtTime(dern)} · attente max {attFmt(st.max)} · moy {attFmt(st.moy)}
+                    <span className="text-xs font-normal">
+                      {ms.length} matchs · appel {fmtTime(prem)} → fin {fmtTime(dern)} · attente max {stAll.n ? attFmt(stAll.max) : "—"} · moy {stAll.n ? attFmt(stAll.moy) : "—"}
                     </span>
-                  </h3>
+                  </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left text-xs uppercase text-emerald-600">
-                        <th className="py-1">Jour</th><th>Appel</th><th>Début</th><th>Terrain</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th>
+                        <th className="py-1">Jour</th><th>Appel</th><th>Début</th><th>Terrain</th><th title="numéro du match : commence à 1 et s'incrémente jusqu'à la fin du tournoi (même index dans toutes les vues et l'export)">N°</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1421,11 +1478,12 @@ function App() {
                           <td className="font-mono text-amber-700">{fmtTime(m.appel)}</td>
                           <td className="font-mono">{fmtTime(m.time)}</td>
                           <td><span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">T{m.court + 1}</span></td>
+                          <td className="font-mono text-xs font-semibold text-emerald-700">{m.num}</td>
                           <td className="text-xs text-emerald-600">{tourLabel(m, b)}</td>
                           <td>{m.phase === "poule"
                             ? <span>{m.a} <span className="text-emerald-400">vs</span> {m.b}</span>
                             : <span className="text-emerald-700">{qualLabel(m.a)} <span className="text-emerald-400">contre</span> {qualLabel(m.b)}</span>}</td>
-                          <td><AttBadge att={m.att} /></td>
+                          <td><AttBadge att={m.att} phase={m.attPhase} /></td>
                         </tr>
                       ))}
                     </tbody>
@@ -1442,14 +1500,16 @@ function App() {
         if (!b) return null;
         const ms = plan.sched.filter((m) => m.tid === b.tid).sort((a, b2) => a.time - b2.time);
         const nbForf = plan.forfaits.filter((m) => m.tid === b.tid).length;
+        const stAll = attStatsAll(ms);
         return (
           <div className="space-y-4">
             <div className={cardCls}>
-              <h3 className="mb-2 font-semibold text-emerald-900">{b.label} — {b.n} {b.unit}, {b.suisse
+              <div className={"mb-2 rounded-lg px-2 py-1.5 font-semibold " + (stAll.n ? attStep(stAll.max).cls : "text-emerald-900")}
+                title="fond coloré selon le code couleur des attentes : attente maximale du tableau (attentes individuelles et délais ≈ de transition de phase)">{b.label} — {b.n} {b.unit}, {b.suisse
                 ? b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " suisse" + (b.rondes > 1 ? "s" : "")
                   + (b.seule ? " — classement final aux victoires" : " — " + b.Q + " qualifié(s) → élimination directe")
                 : b.P === 0 ? "élimination directe" : b.P === 1 ? "poule unique — classement final de la poule, sans suite en élimination directe" : b.P + " poule(s), " + b.Q + " sortant(s)/poule"}, {ms.length} matchs planifiés{nbForf > 0 ? " · " + nbForf + " W.O." : ""}
-                {plan.cuts[b.tid] && <span className="ml-2 text-xs font-normal text-emerald-600">· jour 2 : à partir des {plan.cuts[b.tid].label.toLowerCase()}</span>}</h3>
+                {plan.cuts[b.tid] && <span className="ml-2 text-xs font-normal text-emerald-600">· jour 2 : à partir des {plan.cuts[b.tid].label.toLowerCase()}</span>} · attente max {stAll.n ? attFmt(stAll.max) : "—"}</div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {b.suisse && (
                   <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-2 text-xs sm:col-span-2">
@@ -1474,7 +1534,7 @@ function App() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs uppercase text-emerald-600">
-                    <th className="py-1">Jour</th><th>Appel</th><th>Début</th><th>Terrain</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th>
+                    <th className="py-1">Jour</th><th>Appel</th><th>Début</th><th>Terrain</th><th title="numéro du match : commence à 1 et s'incrémente jusqu'à la fin du tournoi (même index dans toutes les vues et l'export)">N°</th><th title="numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)">Tour</th><th>Rencontre</th><th title="attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée">Attente</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1484,11 +1544,12 @@ function App() {
                       <td className="font-mono text-amber-700">{fmtTime(m.appel)}</td>
                       <td className="font-mono">{fmtTime(m.time)}</td>
                       <td><span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">T{m.court + 1}</span></td>
+                      <td className="font-mono text-xs font-semibold text-emerald-700">{m.num}</td>
                       <td className="text-xs text-emerald-600">{tourLabel(m, b)}</td>
                       <td>{m.phase === "poule"
                         ? <span>{m.a} <span className="text-emerald-400">vs</span> {m.b}</span>
                         : <span className="text-emerald-700">{qualLabel(m.a)} <span className="text-emerald-400">contre</span> {qualLabel(m.b)}</span>}</td>
-                      <td><AttBadge att={m.att} /></td>
+                      <td><AttBadge att={m.att} phase={m.attPhase} /></td>
                     </tr>
                   ))}
                 </tbody>

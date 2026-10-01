@@ -3,7 +3,7 @@ const src = fs.readFileSync(require("path").join(__dirname, "..", "src", "badmin
 const lines = src.split("\n");
 const markerIdx = lines.findIndex((l) => l.includes("Composant principal"));
 let engine = lines.slice(25, markerIdx - 1).join("\n");
-engine = engine.replace(/function AttBadge\(\{ att \}\) \{[\s\S]*?\n\}/, "function AttBadge({ att }) { return att; }");
+engine = engine.replace(/function AttBadge\(\{ att, phase \}\) \{[\s\S]*?\n\}/, "function AttBadge({ att, type }) { return att === null || att === undefined ? (type !== null && type !== undefined ? type : null) : att; }");
 const D = { samedi: { actif: true, terrains: 8, debut: "08:30", fin: "21:50", dureeMatch: "", marge: "", finalesFin: false }, dimanche: { actif: true, terrains: 8, debut: "08:30", fin: "17:00", dureeMatch: "", marge: "", finalesFin: false } };
 eval(engine + `
 const sum = (p) => {

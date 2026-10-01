@@ -39,3 +39,37 @@ export CSV, impression, thème Bad18.
 Base défaut (25 tableaux, 350 matchs) : att60 = 83 · attente max = 112 min ·
 moyenne = 54 min. Option « demis et finales en fin de journée » : 93/124/57.
 Attente max poules → demis (finales en fin de journée) : 124 min (cible ≤ 150).
+
+## 2026-10-01 — Index de matchs, délais de phase, marge réelle, fonds colorés (v1.1)
+
+1. **Numéro de match (colonne « N° »)** : chaque match reçoit un index
+   chronologique de 1 à la fin du tournoi (jour → heure → terrain), affiché
+   entre « Terrain » et « Tableau » dans le planning par jour, et entre
+   « Terrain » et « Tour » dans les vues par classement et par tableau.
+   Le même index désigne le même match dans toutes les vues et dans
+   l'export CSV.
+2. **Délais de transition de phase (badge « ≈ »)** : les premiers matchs
+   d'élimination directe issus des poules ou des rondes suisses n'ont pas
+   d'attente individuelle mesurable (ils affichaient « — »). Ils affichent
+   désormais le délai entre la fin estimée du dernier match de la phase
+   précédente du tableau et leur début — badge italique « ≈ 45 min »,
+   info-bulle dédiée. L'attente individuelle (badge plein) reste inchangée,
+   ainsi que toutes les métriques de référence (att60 = 83, max 112, moy 54).
+3. **Marge réelle dans l'estimation de capacité** : l'estimation de capacité
+   de l'écran de configuration affiche désormais deux colonnes
+   supplémentaires — « Planifié » (matchs réellement planifiés) et
+   « Marge réelle » (minutes entre la fin effective du plan et l'horaire
+   de fermeture). La « Marge » théorique suppose les terrains occupés en
+   continu ; le repos de 20 min, l'appel, l'alternance des tours et les
+   pauses consomment de la capacité : une marge théorique positive ne
+   garantit plus que tout se joue dans l'horaire — la marge réelle le dit.
+   Un avertissement signale les matchs non planifiables.
+4. **Fond coloré par tableau** : dans les vues « Par classement » et par
+   tableau, l'en-tête de chaque tableau est teinté du code couleur des
+   attentes selon l'attente maximale combinée du tableau (attentes
+   individuelles + délais ≈), avec la valeur « attente max » affichée.
+
+Toutes les vues, la version hors-ligne (iPad), la version web et l'export
+CSV sont alignés. Suite de tests étendue : render-views (N° uniques et
+croissants, délais ≈ cohérents, attente max combinée), render-config
+(marge réelle sur 4 scénarios), hors-ligne 95 contrôles (84 → 95).

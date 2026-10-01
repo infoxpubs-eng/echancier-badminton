@@ -7,7 +7,7 @@ const lines = src.split("\n");
 const markerIdx = lines.findIndex((l) => l.includes("Composant principal"));
 let engine = lines.slice(25, markerIdx - 1).join("\n");
 // AttBadge contient du JSX : remplacée par une version JS pure
-engine = engine.replace(/function AttBadge\(\{ att \}\) \{[\s\S]*?\n\}/, "function AttBadge({ att }) { return att === null || att === undefined ? '1er tour' : attFmt(att); }");
+engine = engine.replace(/function AttBadge\(\{ att, phase \}\) \{[\s\S]*?\n\}/, "function AttBadge({ att, type }) { return att === null || att === undefined ? (type !== null && type !== undefined ? '≈ ' + attFmt(type) : '1er tour') : attFmt(att); }");
 if (engine.includes("<")) { /* vérif JSX résiduel */ 
   const jsxLeft = /<[A-Za-z]/.test(engine.replace(/<=/g, "").replace(/->/g, ""));
   if (jsxLeft) { console.error("JSX résiduel dans le moteur extrait !"); process.exit(1); }
@@ -481,6 +481,54 @@ for (const b of planBase.built) {
 }
 expect("fin estimée : calculs cohérents", finEstOk, true);
 console.log("pause/W.O./fin estimée : contrôles ajoutés OK");
+
+/* ===== évolutions 2026-10 : index N°, délais ≈ de phase, marge réelle ===== */
+// N° : numérotation 1..N unique, croissante dans l'ordre chronologique
+{
+  const nums = planBase.sched.map((m) => m.num);
+  const uniq = new Set(nums);
+  expect("N° : 1..N sans doublon", nums.length === uniq.size && Math.min.apply(null, nums) === 1 && Math.max.apply(null, nums) === planBase.sched.length, { n: nums.length, u: uniq.size, min: Math.min.apply(null, nums), max: Math.max.apply(null, nums) });
+  // ordre chronologique : tri par (jour, heure, terrain) = numéros croissants
+  let ordreOk = true;
+  const dayIdx = {}; planBase.days.forEach((d, i) => { dayIdx[d] = i; });
+  const sorted = planBase.sched.slice().sort((x, y) => (dayIdx[x.day] - dayIdx[y.day]) || (x.time - y.time) || (x.court - y.court));
+  sorted.forEach((m, i) => { if (m.num !== i + 1) ordreOk = false; });
+  expect("N° : croissants dans l'ordre chronologique (jour, heure, terrain)", ordreOk, {});
+  // élimination directe pure (P=0, premier tour des joueurs) : pas de délai ≈
+  const directR0 = planBase.sched.filter((m) => m.phase !== "poule" && m.round === 0 && planBase.built[m.tid].P === 0);
+  expect("≈ : élimination directe pure sans délai de phase", directR0.every((m) => m.attPhase === null || m.attPhase === undefined), { bad: directR0.filter((m) => m.attPhase !== null && m.attPhase !== undefined).length });
+}
+// ≈ : premier tour d'élimination après poules → délai = début - fin de la
+// dernière poule du tableau (jamais négatif, cohérent avec le plan)
+{
+  let phaseOk = true, bad = [];
+  for (const b of planBase.built) {
+    if (b.P === 0) continue;
+    const poolMs = planBase.sched.filter((m) => m.tid === b.tid && m.phase === "poule");
+    if (!poolMs.length) continue;
+    const poolEnd = Math.max.apply(null, poolMs.map((m) => m.time + (m.duree !== undefined ? m.duree : 28)));
+    planBase.sched.filter((m) => m.tid === b.tid && m.phase !== "poule" && m.round === 0).forEach((m) => {
+      if (m.att !== null && m.att !== undefined) return; // attente individuelle connue
+      if (m.attPhase === null || m.attPhase === undefined) { phaseOk = false; bad.push({ t: b.label, m: m.time, p: null }); }
+      else if (Math.abs(m.attPhase - (m.time - poolEnd)) > 0.001) { phaseOk = false; bad.push({ t: b.label, p: m.attPhase, v: m.time - poolEnd }); }
+    });
+  }
+  expect("≈ : délai depuis la fin de la dernière poule du tableau", phaseOk, bad.slice(0, 3));
+}
+// vues par tableau/classement : en-tête coloré selon l'attente max combinée
+{
+  let colOk = true, bad = [];
+  for (const b of planBase.built) {
+    const ms = planBase.sched.filter((m) => m.tid === b.tid);
+    if (!ms.length) continue;
+    const st = attStatsAll(ms);
+    const ws = ms.map((m) => (m.att !== null && m.att !== undefined ? m.att : ((m.attPhase !== null && m.attPhase !== undefined) ? m.attPhase : null))).filter((w) => w !== null);
+    if (st.n !== ws.length || st.max !== (ws.length ? Math.max.apply(null, ws) : 0)) { colOk = false; bad.push({ t: b.label, st: st.max, ws: ws.length ? Math.max.apply(null, ws) : 0 }); }
+    if (st.n === 0 && st.max !== 0) { colOk = false; bad.push({ t: b.label, zero: st.max }); }
+  }
+  expect("attente max combinée (fond des vues tableau) : calcul exact", colOk, bad.slice(0, 3));
+}
+console.log("évolutions (N°, ≈, fond coloré) : contrôles ajoutés OK");
 chk.forEach((c) => console.log("  ✗", c));
 `;
 eval(harness);

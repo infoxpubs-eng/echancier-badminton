@@ -253,6 +253,29 @@ code += `
   // 13. colonne « Fin estimée » dans la synthèse
   App.setVueTab("synthese");
   out.push(["colonne Fin estimée", has("Fin estimée")]);
+  // 14. évolutions 2026-10 : colonne N°, délais ≈, fond coloré par tableau, marge réelle
+  const pln = computePlan(state.tabs, state.jours, state.dureeMatch, state.marge, state.combosTox, state.finalesFin,
+    new Set(Object.keys(state.wf).filter((k) => state.wf[k])));
+  const nums = pln.sched.map((mm) => mm.num);
+  out.push(["N° : 1..N unique", new Set(nums).size === nums.length && Math.min.apply(null, nums) === 1 && Math.max.apply(null, nums) === pln.sched.length]);
+  App.setVueTab("planning");
+  out.push(["planning colonne N°", has(">N°</th>")]);
+  out.push(["planning numéros affichés", el.__h.indexOf("font-weight:700;color:var(--em-d)'>") >= 0]);
+  App.setVueTab("classement");
+  out.push(["classement colonne N°", has(">N°</th>")]);
+  out.push(["classement fond coloré attente max", /<h3 style="background:(#059669|#d1fae5|#fef08a|#fed7aa|#fecaca)/.test(el.__h)]);
+  App.setVueTab("t0");
+  out.push(["vue tableau colonne N°", has(">N°</th>")]);
+  out.push(["vue tableau fond coloré attente max", /<h3 style="background:(#059669|#d1fae5|#fef08a|#fed7aa|#fecaca)/.test(el.__h)]);
+  App.setVueTab("planning");
+  const base9 = pln.built.filter((b) => b.P > 0);
+  const finalsPoule = pln.sched.filter((mm) => mm.phase !== "poule" && mm.round === 0 && base9.some((b) => b.tid === mm.tid));
+  out.push(["≈ : délais de phase sur premiers tours d'élimination", finalsPoule.some((mm) => mm.att === null && mm.attPhase !== null && mm.attPhase >= 0)]);
+  out.push(["badge ≈ affiché (italique, tooltip phase)", has("≈ ") && has("délai entre la fin estimée du dernier match de la phase précédente")]);
+  App.backToConfig();
+  out.push(["estimation : colonnes Planifié + Marge réelle", has("Planifié") && has("Marge réelle")]);
+  out.push(["estimation : avertissement théorique vs réel", has("une marge théorique positive ne garantit pas")]);
+  App.generer();
 
   const fails = out.filter(([, ok]) => !ok);
   out.forEach(([n, ok]) => { if (!ok) console.log("ÉCHEC:", n); });

@@ -7,7 +7,7 @@ const lines = src.split("\n");
 const markerIdx = lines.findIndex((l) => l.includes("Composant principal"));
 let engine = lines.slice(25, markerIdx - 1).join("\n");
 // AttBadge contient du JSX : remplacée par une version JS pure
-engine = engine.replace(/function AttBadge\(\{ att \}\) \{[\s\S]*?\n\}/, "function AttBadge({ att }) { return att === null || att === undefined ? '1er tour' : attFmt(att); }");
+engine = engine.replace(/function AttBadge\(\{ att, phase \}\) \{[\s\S]*?\n\}/, "function AttBadge({ att, type }) { return att === null || att === undefined ? (type !== null && type !== undefined ? '≈ ' + attFmt(type) : '1er tour') : attFmt(att); }");
 engine = engine.replace(/export default function App/, "function App_UNUSED");
 
 const harness = engine + `
@@ -175,5 +175,34 @@ tryCase("multi tabs", () => {
 
 console.log("cas testés:", count * 2, "| échecs:", failures.length);
 failures.slice(0, 12).forEach((f) => console.log("ÉCHEC:", f.name, "\\n   ", f.msg, "\\n   ", f.stack));
+
+/* ===== évolution 2026-10 : marge réelle (planification effective) ===== */
+// surcharge volontaire du jour : marge théorique positive possible alors
+// que la planification réelle déborde — les deux mesures doivent diverger
+// proprement et la marge réelle doit refléter la fin effective du plan
+{
+  let ok = true, bad = [];
+  const scenarios = [
+    { lbl: "base 25 tableaux", tabs: baseTabs(), jours: D(), dm: 28 },
+    { lbl: "samedi 17h serré", tabs: baseTabs(), jours: D({ samedi: { actif: true, terrains: 5, debut: "08:30", fin: "17:00" } }), dm: 28 },
+    { lbl: "2 terrains", tabs: [T({ nb: 12 }), T({ disc: "DX", nb: 9, jour: "les-deux" })], jours: D(), dm: 35 },
+    { lbl: "aucun tableau", tabs: [], jours: D(), dm: 28 },
+  ];
+  for (const sc of scenarios) {
+    const plan = computePlan(sc.tabs, sc.jours, sc.dm, 0, false, false);
+    for (const day of plan.days) {
+      const ms = plan.perDay[day] || [];
+      const finReelle = ms.length ? Math.max.apply(null, ms.map((m) => m.time + (m.duree !== undefined ? m.duree : 28))) : null;
+      const margeReelle = finReelle === null ? null : toMin(sc.jours[day].fin, 18 * 60) - finReelle;
+      if (ms.length === 0 && margeReelle !== null) { ok = false; bad.push({ s: sc.lbl, d: day, e: "jour vide → marge non nulle" }); }
+      if (ms.length > 0 && margeReelle === null) { ok = false; bad.push({ s: sc.lbl, d: day, e: "jour plein → marge nulle" }); }
+      // cohérence : débordement réel ⇒ marge réelle négative
+      const depasse = margeReelle !== null && margeReelle < 0;
+      if (depasse && ms.every((m) => m.time + (m.duree !== undefined ? m.duree : 28) <= toMin(sc.jours[day].fin, 18 * 60))) { ok = false; bad.push({ s: sc.lbl, d: day, e: "débordement sans match tardif" }); }
+    }
+  }
+  console.log("marge réelle : contrôles ajoutés " + (ok ? "OK" : "ÉCHEC"));
+  if (!ok) bad.slice(0, 4).forEach((b) => console.log("  ✗", JSON.stringify(b)));
+}
 `;
 eval(harness);

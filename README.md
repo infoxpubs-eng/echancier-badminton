@@ -19,7 +19,16 @@ attente) à partir du paramétrage des tableaux, sans saisir le moindre résulta
   option « demis et finales en fin de journée » ;
 - **Attentes** : badge d'attente **totale** (repos inclus) depuis la fin du
   match précédent du joueur ou de la paire la plus attendu(e), y compris en
-  tableau final (qualifié issu de la source finie le plus tôt) ;
+  tableau final (qualifié issu de la source finie le plus tôt) ; badge « ≈ »
+  pour les premiers matchs d'élimination directe issus des poules (délai
+  depuis la fin de la dernière poule/ronde du tableau) ;
+- **Numéros de match** : colonne « N° » dans tous les plannings — index
+  chronologique de 1 à la fin du tournoi, identique dans toutes les vues
+  et l'export CSV ;
+- **Capacité** : estimation par jour avec marge **théorique** (terrains ×
+  horaire ÷ durée) et marge **réelle** (fin effective du plan vs fermeture) ;
+- **Fond coloré par tableau** : en-têtes des vues « Par classement » et par
+  tableau teintées du code couleur des attentes (attente max combinée) ;
 - **Suivi direct** : marquer un match terminé, déclarer un W.O. (replanification
   immédiate de la journée), survol/tactilité adaptés à l'iPad ;
 - **Export** : CSV (Excel-friendly, BOM + points-virgules) et impression ;
@@ -45,7 +54,7 @@ NB : sur les plans gratuits, Pages n'est disponible que pour les dépôts public
 ## Structure du dépôt
 
 ```
-├── README.md, CHANGELOG.md
+├── README.md, CHANGELOG.md, EVOLUTIONS.md
 ├── index.html                    version web (React via CDN)
 ├── app/echancier-hors-ligne.html  version hors-ligne autonome
 ├── src/                          sources de vérité (app + moteur)
@@ -76,9 +85,3 @@ node tests/metrics.js               # métriques de référence (régression)
 
 Voir `tests/README.md` pour les dépendances de `web-check.js` et le script
 de régénération.
-
-## Licence
-
-© 2026 Alexandre Ansault — [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/deed.fr) :
-réutilisation et adaptation autorisées à des fins **non commerciales**, avec
-crédit de l'auteur. Toute autre utilisation requiert une autorisation écrite.

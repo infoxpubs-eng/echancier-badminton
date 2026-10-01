@@ -5,10 +5,10 @@ Tous les tests s'exécutent depuis la racine du dépôt : `node tests/<fichier>`
 | Test | Contenu |
 |---|---|
 | `swiss-test.js` | moteur ronde suisse : appariement, ordre des rondes, W.O., mixte poules/suisse |
-| `render-views-test.js` | 19 012 cas : rendu des vues, attentes, invariants sémantiques |
+| `render-views-test.js` | 19 012 cas : rendu des vues, attentes, invariants sémantiques, numéros N°, délais ≈, attente max combinée |
 | `rest-test.js` | invariants de planification : repos, pauses, finales en fin de journée, forfaits |
-| `render-config-test.js` | 15 840 cas : écran de configuration |
-| `offline-render-test.js` | 84 contrôles de la version hors-ligne |
+| `render-config-test.js` | 15 840 cas : écran de configuration + marge réelle (4 scénarios) |
+| `offline-render-test.js` | 95 contrôles de la version hors-ligne (dont N°, ≈, marge réelle, fonds colorés) |
 | `offline-swiss-test.js` | ronde suisse dans la version hors-ligne |
 | `exempts-scroll-test.js` | exempts (effectif impair) + conservation du défilement |
 | `metrics.js` | métriques de référence (350 matchs, att60/attMax/attMoy, poules→demis ≤ 150) |

@@ -8,7 +8,7 @@ const lines = src.split("\n");
 // moteur : lignes 26 jusqu'à la fin de computePlan (auto-détecté)
 const markerIdx = lines.findIndex((l) => l.includes("Composant principal"));
 let engine = lines.slice(25, markerIdx - 1).join("\n");
-engine = engine.replace(/function AttBadge\(\{ att \}\) \{[\s\S]*?\n\}/, "function AttBadge({ att }) { return att === null || att === undefined ? '1er tour' : attFmt(att); }");
+engine = engine.replace(/function AttBadge\(\{ att, phase \}\) \{[\s\S]*?\n\}/, "function AttBadge({ att, type }) { return att === null || att === undefined ? (type !== null && type !== undefined ? '≈ ' + attFmt(type) : '1er tour') : attFmt(att); }");
 // variante « ancienne priorité » (max) pour comparaison : copie de computePlan uniquement
 const cpIdx = engine.indexOf("function computePlan(");
 const engineCore = engine.slice(0, cpIdx);
