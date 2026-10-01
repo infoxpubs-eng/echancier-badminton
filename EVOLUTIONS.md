@@ -79,37 +79,27 @@ attente) et la manière dont elle a été résolue.
 
 ---
 
-## 2026-10-01 — Lot 5 (v1.4)
+## 2026-10-01 — Lot 3 (v1.2)
 
-### 1. Nom du tableau sur deux lignes dans la première colonne — ✅ implémenté (v1.4)
+### 1. Clarification de l'estimation de capacité (« comment est calculé le −201 ? ») — ✅ implémenté (v1.2)
 
-- **Demande** (capture de la vue « Structure des tableaux ») : « Au
-  niveau de l'affichage peux-tu faire en sorte que le nom du tableau
-  dans la première colonne tienne sur une ligne et non deux ? »
-- **Analyse** : les badges de tableau des versions React et web
-  n'interdisaient pas le retour à la ligne — sur iPad, « DX Série 1 »
-  s'affichait « DX » puis « Série 1 ». La version hors-ligne avait déjà
-  `white-space: nowrap` sur `.badge`.
-- **Résolution** : les 4 badges des versions React et web passent en
-  `whitespace-nowrap` (vue d'ensemble, planning par jour, en-têtes par
-  classement/tableau) ; la colonne s'élargit, le tableau défile
-  horizontalement si l'écran est étroit. Aucun changement moteur.
-
-### 2. Confirmation du comportement « les deux jours » — ✅ validé (v1.3, sans changement)
-
-- **Demande** : « Le DX 1 n'a pas besoin de démarrer tard le dimanche
-  ou à la suite de l'horaire du samedi — les matchs peuvent être
-  programmés en matinée ou ailleurs dans la journée. Est-ce ok aussi
-  pour toi ? »
-- **Analyse** : la capture fournie montrait l'état d'avant correctif
-  v1.3 (demis du dimanche à 17:09, finale à 18:30 — le −118 min de la
-  capture précédente). Le correctif v1.3 répond exactement au besoin :
-  le jour 2 ne s'ancre plus sur l'horloge du jour 1 ; les matchs du
-  tableau étalé démarrent à l'ouverture du jour (08:30) ou s'intercalent
-  librement dans la journée selon la disponibilité des terrains.
-- **Résolution** : rien à changer — comportement conforme (vérifié par
-  `tests/deux-jours-test.js` : reprise à 08:30, ordre des tours, repos
-  20 min, marge réelle dimanche positive).
+- **Demande** : capture d'écran de l'estimation de capacité — « Vois-tu
+  un problème avec l'estimation ? En particulier pour le dimanche,
+  j'ai l'impression que tous les matchs ne sont pas pris en compte,
+  ou alors comment est calculé le −201 ? »
+- **Analyse** : ce n'est pas un bug. « Marge réelle » = fermeture du
+  jour − fin du dernier match planifié (ex. −201 = fermeture 17:00,
+  dernier match 20:21) ; le moteur ne supprime jamais de matchs. La
+  confusion venait de la colonne « Marge » théorique, qui ne déduit
+  que le besoin **fixe** du jour : les tableaux « les deux jours »
+  n'y sont pas comptés alors qu'ils se planifient en partie chaque
+  jour (d'où Besoin fixe dimanche 57 vs Planifié 68 sur la capture).
+- **Résolution** : colonne « Planifié » complétée du suffixe
+  « (N deux-jours) » avec info-bulle de décomposition ; info-bulles
+  explicites sur « Besoin fixe », « Marge », « Planifié », « Marge
+  réelle » ; paragraphe d'explication étendu (définition de la marge
+  réelle négative, rappel qu'aucun match n'est supprimé). Appliqué aux
+  trois versions (React, web, hors-ligne). Métriques inchangées.
 
 ---
 
@@ -147,27 +137,108 @@ attente) et la manière dont elle a été résolue.
 
 ---
 
-## 2026-10-01 — Lot 3 (v1.2)
+## 2026-10-01 — Lot 5 (v1.4)
 
-### 1. Clarification de l'estimation de capacité (« comment est calculé le −201 ? ») — ✅ implémenté (v1.2)
+### 1. Nom du tableau sur deux lignes dans la première colonne — ✅ implémenté (v1.4)
 
-- **Demande** : capture d'écran de l'estimation de capacité — « Vois-tu
-  un problème avec l'estimation ? En particulier pour le dimanche,
-  j'ai l'impression que tous les matchs ne sont pas pris en compte,
-  ou alors comment est calculé le −201 ? »
-- **Analyse** : ce n'est pas un bug. « Marge réelle » = fermeture du
-  jour − fin du dernier match planifié (ex. −201 = fermeture 17:00,
-  dernier match 20:21) ; le moteur ne supprime jamais de matchs. La
-  confusion venait de la colonne « Marge » théorique, qui ne déduit
-  que le besoin **fixe** du jour : les tableaux « les deux jours »
-  n'y sont pas comptés alors qu'ils se planifient en partie chaque
-  jour (d'où Besoin fixe dimanche 57 vs Planifié 68 sur la capture).
-- **Résolution** : colonne « Planifié » complétée du suffixe
-  « (N deux-jours) » avec info-bulle de décomposition ; info-bulles
-  explicites sur « Besoin fixe », « Marge », « Planifié », « Marge
-  réelle » ; paragraphe d'explication étendu (définition de la marge
-  réelle négative, rappel qu'aucun match n'est supprimé). Appliqué aux
-  trois versions (React, web, hors-ligne). Métriques inchangées.
+- **Demande** (capture de la vue « Structure des tableaux ») : « Au
+  niveau de l'affichage peux-tu faire en sorte que le nom du tableau
+  dans la première colonne tienne sur une ligne et non deux ? »
+- **Analyse** : les badges de tableau des versions React et web
+  n'interdisaient pas le retour à la ligne — sur iPad, « DX Série 1 »
+  s'affichait « DX » puis « Série 1 ». La version hors-ligne avait déjà
+  `white-space: nowrap` sur `.badge`.
+- **Résolution** : les 4 badges des versions React et web passent en
+  `whitespace-nowrap` (vue d'ensemble, planning par jour, en-têtes par
+  classement/tableau) ; la colonne s'élargit, le tableau défile
+  horizontalement si l'écran est étroit. Aucun changement moteur.
+
+### 2. Confirmation du comportement « les deux jours » — ✅ validé (v1.3, sans changement)
+
+- **Demande** : « Le DX 1 n'a pas besoin de démarrer tard le dimanche
+  ou à la suite de l'horaire du samedi — les matchs peuvent être
+  programmés en matinée ou ailleurs dans la journée. Est-ce ok aussi
+  pour toi ? »
+- **Analyse** : la capture fournie montrait l'état d'avant correctif
+  v1.3 (demis du dimanche à 17:09, finale à 18:30 — le −118 min de la
+  capture précédente). Le correctif v1.3 répond exactement au besoin :
+  le jour 2 ne s'ancre plus sur l'horloge du jour 1 ; les matchs du
+  tableau étalé démarrent à l'ouverture du jour (08:30) ou s'intercalent
+  librement dans la journée selon la disponibilité des terrains.
+- **Résolution** : rien à changer — comportement conforme (vérifié par
+  `tests/deux-jours-test.js` : reprise à 08:30, ordre des tours, repos
+  20 min, marge réelle dimanche positive).
+
+---
+
+## 2026-10-01 — Lot 6 : comptes, presets, thème dark — ⏳ feuille de route proposée (non implémentée)
+
+### 1. Sauvegarder une configuration de départ pour y revenir — ⏳ proposé (v1.5)
+
+- **Demande** : « la possibilité de sauvegarder une configuration de
+  départ pour y revenir ensuite ».
+- **Proposition** : configurations nommées stockées sur l'appareil
+  (localStorage, compatible iPad/hors-ligne) — « Enregistrer sous… »,
+  « Charger », « Dupliquer », « Supprimer ». Sauvegarde automatique de
+  la dernière configuration au moment de la génération. Export/import
+  d'un fichier `.json` pour partager entre appareils. Contenu : jours
+  (horaires, terrains, pauses, demis-finales en fin de journée),
+  tableaux (discipline, classement, inscrits, format, jour(s), rondes,
+  qualifiés), paramètres communs (durée, marge, combinaisons toxiques,
+  thème).
+
+### 2. Comptes utilisateurs (login + mot de passe) avec profils — ⏳ proposé (v2.0, décision d'architecture requise)
+
+- **Demande** : « créer des comptes utilisateurs avec des profils
+  dédiés : admin (peut tout voir et tout modifier), organisateur (ne
+  voit et ne peut modifier que son périmètre), puis un lien public
+  pour voir juste le déroulé des journées ».
+- **Analyse** : l'application est 100 % côté client (GitHub Pages,
+  aucun serveur) — une vraie authentification multi-appareils impose
+  une infrastructure (base + authentification). Deux trajectoires :
+  - **Option A — profils locaux (recommandée d'abord)** : plusieurs
+    profils sur l'appareil protégés par mot de passe local (garde-fou,
+    données restant sur l'iPad) ; chaque organisateur a son périmètre
+    (ses configurations/tableaux), l'admin voit et modifie tout ;
+    « lien public » = export d'une page HTML autonome en lecture
+    seule (déroulé des journées, aucune action), partageable par
+    fichier ou publiée sur une URL dédiée. Aucune dépendance externe,
+    hors-ligne, données personnelles minimales.
+  - **Option B — backend hébergé** (nécessaire seulement si plusieurs
+    organisateurs modifient simultanément depuis des appareils
+    différents) : auth e-mail + mot de passe (ex. Supabase), tournois
+    par organisateur, admin global, URL publique en lecture seule par
+    tournoi. Coût : hébergement, protection des comptes (RGPD),
+    complexité.
+- **Proposition** : v2.0 = option A ; option B différée jusqu'à besoin
+  réel démontré d'édition simultanée.
+
+### 3. Thème d'affichage « dark » — ⏳ proposé (v1.5)
+
+- **Demande** : « un thème d'affichage "dark" ».
+- **Proposition** : palette sombre pilotée par les variables CSS (la
+  version hors-ligne les utilise déjà ; React/web aligné), intégrée au
+  sélecteur de thème existant (classique / Bad18 / dark).
+
+### 4. Couleurs d'attentes et de marges identiques dans tous les thèmes — ⏳ proposé (v1.5)
+
+- **Demande** : « pour chaque thème, les couleurs liées aux attentes
+  estimées ou aux marges réelles doivent être les mêmes que dans le
+  mode classique ».
+- **Proposition** : palette **sémantique invariante** — les seuils
+  d'attente (vert ≤ 1 h, ambre 1–2 h, rouge ≥ 2 h) et les marges
+  (✓ vert / ⚠ rouge) conservent exactement leurs accents quel que
+  soit le thème ; seul le fond général change. Contrôle automatisé
+  dans la suite de tests.
+
+### Phasage proposé
+
+- **v1.5** (100 % côté client, compatible hors-ligne) : presets de
+  configuration + thème dark + palette sémantique invariante.
+- **v2.0** : profils locaux (mot de passe local + périmètres) + page
+  publique lecture seule par export.
+- **v2.1+** (conditionnel) : backend multi-appareils si le besoin
+  d'édition simultanée est confirmé.
 
 ---
 

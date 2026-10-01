@@ -151,3 +151,20 @@ tienne sur une ligne et non deux ? »
    hors-ligne disposait déjà de la règle (`white-space: nowrap` sur
    `.badge`) — aucun changement moteur ni de données, métriques
    inchangées.
+
+## Feuille de route proposée (2026-10-01) — non implémentée
+
+Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :
+
+- **v1.5** — Sauvegarde de configurations nommées (retour à une
+  configuration de départ) + export/import `.json` ; thème d'affichage
+  « dark » ; palette **sémantique invariante** (couleurs d'attentes
+  estimées et de marges réelles identiques dans tous les thèmes).
+- **v2.0** — Profils utilisateurs avec mot de passe local : admin
+  (voit et modifie tout), organisateur (périmètre restreint) ; lien
+  public en lecture seule (déroulé des journées) par export d'une page
+  autonome. Architecture sans serveur recommandée d'abord ; backend
+  multi-appareils seulement si besoin d'édition simultanée confirmé.
+
+Tickets GitHub ouverts : #9 (presets), #10 (comptes/profils + lien
+public), #11 (thème dark), #12 (couleurs invariantes par thème).
