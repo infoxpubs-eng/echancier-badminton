@@ -255,7 +255,9 @@ expect("baseTabs 25 built", planBase.built.length === 25, planBase.built.length)
 const matchsTot = planBase.built.reduce((s, b) => s + b.poolMs.length + b.playedFinals.length, 0);
 console.log("base (défaut) : " + matchsTot + " matchs, planifiés " + planBase.sched.length + ", non planifiés " + planBase.unscheduled.length);
 
-/* ===== intercalage : une finale ne démarre qu'après SES deux sources ===== */
+/* ===== intercalage : une finale ne démarre qu'après SES deux sources =====
+   (source d'un autre jour — tableau « les deux jours » : repos de nuit
+   acquis, pas de contrainte d'heure entre les deux horloges) */
 function feederInvariant(plan, duree, name, fails) {
   const byFid = new Map();
   plan.sched.forEach((m) => { if (m.phase !== "poule") byFid.set(m.tid + "|" + m.fid, m); });
@@ -263,7 +265,7 @@ function feederInvariant(plan, duree, name, fails) {
     if (m.phase === "poule" || m.round === 0) return;
     [m.a, m.b].forEach((fid) => {
       const fm = byFid.get(m.tid + "|" + fid);
-      if (fm !== undefined && m.time < fm.time + duree + REPOS)
+      if (fm !== undefined && fm.day === m.day && m.time < fm.time + duree + REPOS)
         fails.push(name + " : finale " + m.fid + " démarre avant sa source " + fid);
     });
   });

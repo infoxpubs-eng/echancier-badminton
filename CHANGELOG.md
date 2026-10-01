@@ -100,3 +100,37 @@ dimanche, tous les matchs ne semblent pas pris en compte. »
 Aucune modification du moteur ni des métriques de référence
 (att60 = 83, max 112, moy 54) : amélioration d'affichage uniquement,
 alignée sur les trois versions (React, web, hors-ligne).
+
+## 2026-10-01 — Reprise du jour 2 ancrée sur l'horloge du jour 1 (v1.3)
+
+Question du juge-arbitre : « Samedi 155 matchs sur 228 mais marge réelle
++178 min ; dimanche 57 matchs sur 145 mais marge réelle −118 min. Le
+calcul porte-t-il bien sur chacun des jours ? Si je n'étale pas le DX 1
+sur deux jours, c'est plus cohérent. »
+
+1. **Diagnostic** : le calcul de la marge réelle est bien **par jour**
+   (fermeture du jour − fin du dernier match planifié ce jour-là) ;
+   c'est la planification qui était fausse. Pour un tableau « les deux
+   jours », les matchs du jour 2 héritaient de l'horloge absolue du
+   jour 1 : une source finie à 17:42 samedi imposait la reprise des
+   demis à 18:02 dimanche (17:42 + 20 min de repos), alors que le repos
+   de la nuit est acquis. D'où le tableau incohérent de la capture :
+   samedi sous-rempli (+178) et dimanche « débordant » (−118) avec
+   seulement 57 matchs — la finale jouée à 18:30 le dimanche.
+2. **Correctif moteur** : une source jouée un **autre jour** ne
+   contraignait plus l'heure de reprise — le match du jour 2 démarre à
+   l'ouverture du jour. L'attente individuelle d'une source de la veille
+   n'est plus mesurable (badge « — ») au lieu d'hériter d'un délai
+   erroné ; le badge « ≈ » (délai de phase) ne compare plus qu'aux
+   poules du même jour.
+3. **Tests** : nouvel invariant dans `rest-test` et `render-views`
+   (l'intercalage finale/sources ne s'applique qu'aux sources du même
+   jour — le repos de nuit est acquis) ; nouveau `deux-jours-test.js`
+   (11 contrôles : reprise à l'ouverture 08:30, tours ordonnés, repos
+   20 min, attente des demis non mesurable, marge réelle dimanche
+   positive — échoue sur le moteur d'avant correctif).
+
+Le diagnostic de l'utilisateur était juste : sans étaler le DX 1, le
+problème disparaissait (aucune dépendance inter-jours). Après correctif,
+étaler un tableau sur deux jours redevient cohérent : le jour 2 reprend
+à l'ouverture, toutes vues alignées (React, web, hors-ligne).

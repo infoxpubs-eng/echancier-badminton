@@ -7,6 +7,7 @@ Tous les tests s'exécutent depuis la racine du dépôt : `node tests/<fichier>`
 | `swiss-test.js` | moteur ronde suisse : appariement, ordre des rondes, W.O., mixte poules/suisse |
 | `render-views-test.js` | 19 012 cas : rendu des vues, attentes, invariants sémantiques, numéros N°, délais ≈, attente max combinée |
 | `rest-test.js` | invariants de planification : repos, pauses, finales en fin de journée, forfaits |
+| `deux-jours-test.js` | tableaux « les deux jours » : reprise du jour 2 à l'ouverture (pas d'ancrage sur l'horloge du jour 1), ordre des tours, repos, attentes inter-jours non mesurables |
 | `render-config-test.js` | 15 840 cas : écran de configuration + marge réelle (4 scénarios) |
 | `offline-render-test.js` | 95 contrôles de la version hors-ligne (dont N°, ≈, marge réelle, fonds colorés) |
 | `offline-swiss-test.js` | ronde suisse dans la version hors-ligne |

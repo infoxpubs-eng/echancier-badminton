@@ -49,14 +49,16 @@ function restInvariant(plan, duree, name, fails) {
     });
   }
   // intercalage : une finale ne démarre qu'une fois SES deux sources
-  // terminées (+ repos) — l'invariant est au niveau du match, pas du tour
+  // terminées (+ repos) — l'invariant est au niveau du match, pas du tour.
+  // Source d'un AUTRE jour (tableau « les deux jours ») : le repos de la
+  // nuit est acquis, aucune contrainte d'heure entre les deux horloges.
   const byFid = new Map();
   plan.sched.forEach((m) => { if (m.phase !== "poule") byFid.set(m.tid + "|" + m.fid, m); });
   plan.sched.forEach((m) => {
     if (m.phase === "poule" || m.round === 0) return;
     [m.a, m.b].forEach((fid) => {
       const fm = byFid.get(m.tid + "|" + fid);
-      if (fm !== undefined && m.time < fm.time + md(fm) + REPOS)
+      if (fm !== undefined && fm.day === m.day && m.time < fm.time + md(fm) + REPOS)
         fails.push(name + " repos finale violé (tab " + m.tid + ", " + m.fid + " avant sa source " + fid + ")");
     });
   });

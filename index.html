@@ -416,6 +416,12 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
   // d'autres matchs du tour précédent se jouent encore
   const finByFid = new Map();
   items.forEach((m) => { if (m.phase !== "poule") finByFid.set(m.tid + "|" + m.fid, m); });
+  // jour en cours de planification : une source jouée un AUTRE jour (tableau
+  // « les deux jours ») ne contraint pas l'heure de reprise — le repos de la
+  // nuit est acquis, le match du jour 2 démarre à l'ouverture du jour au lieu
+  // d'hériter de l'horloge absolue du jour 1 (bug : finale reprogrammée à
+  // l'heure de la veille, d'où des marges réelles dimanche aberrantes)
+  let curDay = null;
   const feederEnd = (m) => {
     if (m.round === 0) return -1e9;
     let pe = -1e9;
@@ -426,7 +432,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
       // SES propres sources sont terminées
       else if (fm.forfait) pe = Math.max(pe, feederEnd(fm));
       // source « bye » (exemptée) : jamais planifiée → sans contrainte
-      else pe = Math.max(pe, fm.scheduled ? fm.time + (fm.duree !== undefined ? fm.duree : duree) : Infinity);
+      else pe = Math.max(pe, fm.scheduled ? (fm.day !== undefined && fm.day !== curDay ? -1e9 : fm.time + (fm.duree !== undefined ? fm.duree : duree)) : Infinity);
     });
     return pe;
   };
@@ -458,7 +464,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
   const perDay = {};
   const dayDuree = {}; // jour -> durée planifiée effective de ses matchs
   const lastEnd = new Map(); // clé participant -> fin du dernier match (jour courant)
-  const poolEndAll = new Map(); // tid -> fin de la dernière poule/ronde planifiée (tous jours confondus)
+  const poolEndAll = new Map(); // tid|jour -> fin de la dernière poule/ronde planifiée ce jour-là
   for (const day of days) {
     const j = jours[day];
     const dureeJ = resDuree(day);
@@ -471,6 +477,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
     const pauseD = toMin(j.pauseDebut, null);
     const pauseF = toMin(j.pauseFin, null);
     const hasPause = pauseD !== null && pauseF !== null && pauseF > pauseD;
+    curDay = day;
     lastEnd.clear();
     const queue = items.filter((m) => !m.scheduled && !m.forfait && allowed(m).includes(day));
     const st = built.map(() => ({ poolLeft: 0, roundLeft: {}, roundEnd: {}, swissLeft: {} }));
@@ -626,7 +633,8 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
           const fm = finByFid.get(m.tid + "|" + fid);
           let e;
           if (fm !== undefined && fm.forfait) e = feederEnd(fm);
-          else if (fm !== undefined && fm.scheduled) e = fm.time + (fm.duree !== undefined ? fm.duree : dureeJ);
+          else if (fm !== undefined && fm.scheduled) e = fm.day !== undefined && fm.day !== day ? undefined : fm.time + (fm.duree !== undefined ? fm.duree : dureeJ);
+          if (e !== undefined && e < -1e8) e = undefined; // source jouée un autre jour ou sans contrainte : pas d'attente mesurable
           if (e !== undefined) { found = true; peMin = Math.min(peMin, e); }
         });
         m.att = found ? time - peMin : null;
@@ -634,7 +642,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
         // ou des rondes suisses) : attente individuelle non applicable —
         // on mémorise le délai depuis la fin estimée de la dernière poule/
         // ronde du tableau (badge « ≈ », indicateur organisationnel)
-        m.attPhase = found ? null : (poolEndAll.get(m.tid) !== undefined ? time - poolEndAll.get(m.tid) : null);
+        m.attPhase = found ? null : (poolEndAll.get(m.tid + "|" + day) !== undefined ? time - poolEndAll.get(m.tid + "|" + day) : null);
       }
       m.scheduled = true; m.day = day; m.time = time; m.court = ci; m.appel = time - APPEL; m.duree = dureeJ;
       courts[ci] = time + dureeJ;
@@ -643,7 +651,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
         st[m.tid].poolLeft--;
         if (m.suisse) st[m.tid].swissLeft[m.round] = (st[m.tid].swissLeft[m.round] || 1) - 1;
         st[m.tid].poolEnd = Math.max(st[m.tid].poolEnd ?? 0, time + dureeJ);
-        poolEndAll.set(m.tid, Math.max(poolEndAll.get(m.tid) ?? 0, time + dureeJ));
+        poolEndAll.set(m.tid + "|" + day, Math.max(poolEndAll.get(m.tid + "|" + day) ?? 0, time + dureeJ));
         poolPlayEnd = Math.max(poolPlayEnd, time + dureeJ);
       } else {
         st[m.tid].roundLeft[m.round] = (st[m.tid].roundLeft[m.round] || 1) - 1;

@@ -79,6 +79,40 @@ attente) et la manière dont elle a été résolue.
 
 ---
 
+## 2026-10-01 — Lot 4 (v1.3)
+
+### 1. Marge réelle dimanche incohérente avec un tableau étalé sur deux jours — ✅ implémenté (v1.3)
+
+- **Demande** (capture d'estimation) : « Samedi 155 matchs sur 228,
+  marge réelle +178 min ; dimanche 57 sur 145, marge réelle −118 min.
+  Est-ce que le calcul de la marge réelle porte bien sur chacun des
+  jours ? Il semblerait que si je n'étale pas le DX 1 sur deux jours
+  cela soit plus cohérent. »
+- **Analyse** : le calcul de la marge réelle est correct (par jour :
+  fermeture du jour − fin du dernier match planifié ce jour-là).
+  Le défaut était dans la planification : pour un tableau « les deux
+  jours », les dépendances du jour 2 (demis → quarts joués la veille)
+  étaient évaluées dans l'horloge absolue du jour 1 — une source
+  finie à 17:42 samedi imposait une reprise des demis à 18:02
+  dimanche (repos de 20 min appliqué sur des horaires de la veille),
+  alors que le repos de la nuit est acquis. Résultat : la finale du
+  DX jouée à 18:30 le dimanche alors que la journée était presque
+  vide, samedi terminant tôt de son côté. Le diagnostic de
+  l'utilisateur était exact : sans tableau étalé, aucune dépendance
+  inter-jours, donc pas de symptôme.
+- **Résolution** : une source jouée un autre jour ne contraint plus
+  l'heure de reprise — le match du jour 2 démarre à l'ouverture du
+  jour (vérifié : reprise à 08:30 au lieu de 13:30 sur le scénario de
+  reproduction). L'attente d'une source de la veille est non
+  mesurable (« — ») au lieu d'un délai hérité ; le badge « ≈ » ne
+  compare plus qu'aux poules du même jour. Invariants de tests
+  ajustés (intercalage sources du même jour uniquement) et nouveau
+  `tests/deux-jours-test.js` (échoue sur le moteur d'avant
+  correctif). Métriques de référence inchangées (att60 = 83,
+  max 112, moy 54 — aucun tableau « les deux jours » dans la base).
+
+---
+
 ## 2026-10-01 — Lot 3 (v1.2)
 
 ### 1. Clarification de l'estimation de capacité (« comment est calculé le −201 ? ») — ✅ implémenté (v1.2)
