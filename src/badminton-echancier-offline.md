@@ -35,6 +35,7 @@ type: "text/html"
   input.w100, select.w100 { width: 100px; }
   input.w120, select.w120 { width: 120px; }
   input.w130, select.w130 { width: 130px; }
+  input.w200, select.w200 { width: 200px; }
   /* rangées de champs d'une carte jour : grille responsive — chaque champ
      garde une largeur utilisable (les champs heure d'iOS ont besoin de
      ~110px minimum) et passe à la ligne quand la carte est étroite ; les
@@ -354,6 +355,9 @@ const state = {
   marge: 0,
   combosTox: false,
   finalesFin: false,
+  // option « cadence par vagues » : 0 = souple (défaut), 0.5 = resserrée,
+  // 1 = vagues strictes par tableau (rythme cadencé type BadNet)
+  cadence: 0,
   theme: "classique",
   jours: {
     samedi: { actif: true, terrains: 8, debut: "08:30", fin: "21:50", dureeMatch: "", marge: "", finalesFin: false, pauseDebut: "", pauseFin: "" },
@@ -388,7 +392,7 @@ function cfgSnapshot() {
   return {
     jours: JSON.parse(JSON.stringify(state.jours)), tabs: JSON.parse(JSON.stringify(state.tabs)),
     dureeMatch: state.dureeMatch, marge: state.marge, combosTox: state.combosTox,
-    finalesFin: state.finalesFin, theme: state.theme,
+    finalesFin: state.finalesFin, cadence: state.cadence, theme: state.theme,
   };
 }
 function cfgApply(c) {
@@ -399,6 +403,7 @@ function cfgApply(c) {
   if (c.marge !== undefined) state.marge = c.marge;
   if (c.combosTox !== undefined) state.combosTox = !!c.combosTox;
   if (c.finalesFin !== undefined) state.finalesFin = !!c.finalesFin;
+  if (c.cadence !== undefined) state.cadence = Math.min(1, Math.max(0, +c.cadence || 0));
   if (c.theme) state.theme = c.theme;
   return true;
 }
@@ -581,10 +586,19 @@ function cutsDeuxJours(built, jours, duree) {
    chevauche) ; le 7e argument (facultatif) liste les matchs « W.O. »
    (forfaits) : ils ne consomment pas de terrain et libèrent les
    matchs qui en dépendent — la journée est replanifiée sans eux. */
-function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, forfaits) {
+function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, forfaits, cadenceBrut) {
   // durée planifiée = durée moyenne + marge de sécurité : la marge absorbe
   // les dépassements réels pour que le repos de 20 min reste garanti
   const duree = Math.max(28, Math.floor(+dureeBrut) || 28) + Math.max(0, Math.floor(+margeBrut) || 0);
+  // option « cadence par vagues » (0 → 1) : resserrer les tours d'une
+  // même poule à un battement régulier au lieu de l'entrelacement souple.
+  // 0 = souple (défaut) ; à mi-course le battement minimal entre la fin
+  // du tour précédent d'une poule et le début du suivant interpole du
+  // repos (20 min) vers la durée d'un créneau ; à 1 = vague stricte par
+  // tableau : le tour r ne démarre que lorsque le tour r-1 du même
+  // tableau est entièrement terminé (rythme cadencé type BadNet). Le
+  // repos minimum de 20 min reste garanti dans tous les cas.
+  const cadence = Math.min(1, Math.max(0, Number(cadenceBrut) || 0));
   const days = daySort(Object.keys(jours).filter((j) => jours[j].actif));
   // durée et marge peuvent être surchargées pour chaque journée (paramètre
   // vide = valeur commune) ; l'option « demis et finales en fin de journée »
@@ -673,6 +687,9 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
     const dureeJ = resDuree(day);
     const finalesFinJ = j.finalesFin !== undefined ? !!j.finalesFin : !!finalesFin;
     dayDuree[day] = dureeJ;
+    // battement minimal interpole du repos vers la durée d'un créneau
+    // selon la cadence (option « cadence par vagues »)
+    const battementJ = REPOS + Math.round(cadence * Math.max(0, dureeJ - REPOS));
     const start = toMin(j.debut, 9 * 60);
     const end = toMin(j.fin, 18 * 60);
     const courts = Array.from({ length: Math.max(1, j.terrains) }, () => start);
@@ -683,10 +700,11 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
     curDay = day;
     lastEnd.clear();
     const queue = items.filter((m) => !m.scheduled && !m.forfait && allowed(m).includes(day));
-    const st = built.map(() => ({ poolLeft: 0, roundLeft: {}, roundEnd: {}, swissLeft: {} }));
+    const st = built.map(() => ({ poolLeft: 0, roundLeft: {}, roundEnd: {}, swissLeft: {}, poolRoundLeft: {}, poolRoundEnd: {}, poolEndR: {} }));
     queue.forEach((m) => {
       if (m.phase === "poule") {
         st[m.tid].poolLeft++;
+        st[m.tid].poolRoundLeft[m.round] = (st[m.tid].poolRoundLeft[m.round] || 0) + 1;
         if (m.suisse) st[m.tid].swissLeft[m.round] = (st[m.tid].swissLeft[m.round] || 0) + 1;
       }
       else st[m.tid].roundLeft[m.round] = (st[m.tid].roundLeft[m.round] || 0) + 1;
@@ -720,7 +738,22 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
         // ronde suisse : une ronde ne démarre que lorsque la précédente du
         // même tableau est entièrement planifiée (ordre des rondes strict)
         if (m.suisse && (st[m.tid].swissLeft[m.round - 1] || 0) > 0) return Infinity;
-        return Math.max((lastEnd.get(m.aK) !== undefined ? lastEnd.get(m.aK) : -1e9) + REPOS, (lastEnd.get(m.bK) !== undefined ? lastEnd.get(m.bK) : -1e9) + REPOS);
+        let base = Math.max((lastEnd.get(m.aK) !== undefined ? lastEnd.get(m.aK) : -1e9) + REPOS, (lastEnd.get(m.bK) !== undefined ? lastEnd.get(m.bK) : -1e9) + REPOS);
+        // option « cadence par vagues » : battement régulier entre les
+        // tours d'une même poule ; à cadence maximale, vague stricte par
+        // tableau — le tour r attend la fin du tour r-1 du tableau entier
+        // (échéancier à créneaux cadencés type BadNet)
+        if (cadence > 0 && m.round > 0 && !m.suisse) {
+          const s2 = st[m.tid];
+          if (cadence >= 1) {
+            if ((s2.poolRoundLeft[m.round - 1] || 0) > 0) return Infinity;
+            base = Math.max(base, (s2.poolRoundEnd[m.round - 1] !== undefined ? s2.poolRoundEnd[m.round - 1] : -1e9) + battementJ);
+          } else {
+            const pe = s2.poolEndR[m.pool + "|" + (m.round - 1)];
+            base = Math.max(base, (pe !== undefined ? pe : -1e9) + battementJ);
+          }
+        }
+        return base;
       }
       const s = st[m.tid];
       if (s.poolLeft > 0) return Infinity;
@@ -857,6 +890,10 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
         lastEnd.set(m.aK, time + dureeJ); lastEnd.set(m.bK, time + dureeJ);
         st[m.tid].poolLeft--;
         if (m.suisse) st[m.tid].swissLeft[m.round] = (st[m.tid].swissLeft[m.round] || 1) - 1;
+        st[m.tid].poolRoundLeft[m.round] = (st[m.tid].poolRoundLeft[m.round] || 1) - 1;
+        st[m.tid].poolRoundEnd[m.round] = Math.max(st[m.tid].poolRoundEnd[m.round] || 0, time + dureeJ);
+        const pk = m.pool + "|" + m.round;
+        st[m.tid].poolEndR[pk] = Math.max(st[m.tid].poolEndR[pk] || 0, time + dureeJ);
         st[m.tid].poolEnd = Math.max(st[m.tid].poolEnd || 0, time + dureeJ);
         poolEndAll.set(m.tid + "|" + day, Math.max(poolEndAll.get(m.tid + "|" + day) || 0, time + dureeJ));
         poolPlayEnd = Math.max(poolPlayEnd, time + dureeJ);
@@ -997,6 +1034,11 @@ function renderConfig() {
         "<option value='classique' " + (state.theme === "classique" ? "selected" : "") + ">Classique (vert)</option>" +
         "<option value='bad18' " + (state.theme === "bad18" ? "selected" : "") + ">Bad18 (rouge et noir)</option>" +
         "<option value='dark' " + (state.theme === "dark" ? "selected" : "") + ">Dark (sombre)</option>" +
+      "</select></div>" +
+      "<div><label>Cadence des tours de poule (option « cadence par vagues »)</label><select class='w200' onchange=\\\"App.setCadence(this.value)\\\">" +
+        "<option value='0' " + (state.cadence === 0 ? "selected" : "") + ">Souple (défaut) — entrelacement, priorité au joueur qui attend le plus</option>" +
+        "<option value='0.5' " + (state.cadence === 0.5 ? "selected" : "") + ">Resserrée — battement régulier entre les tours d'une même poule</option>" +
+        "<option value='1' " + (state.cadence === 1 ? "selected" : "") + ">Vagues strictes — le tour r d'un tableau démarre après la fin du tour r-1 (type BadNet)</option>" +
       "</select></div></div>" +
       "<p style='font-size:.72rem;color:var(--em);margin:6px 0 0'>La marge de sécurité est ajoutée à chaque match de l'échéancier théorique : si un match réel dépasse sa durée prévue (jusqu'à cette marge), les matchs suivants restent à l'heure et le repos réel ne descend jamais sous " + REPOS + " min. Au-delà, le respect du repos passe avant l'heure affichée : les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</p>" +
       "<label style='display:flex;gap:8px;margin:12px 0 0;cursor:pointer;font-size:.85rem;color:var(--em-d)'><input type='checkbox' style='width:auto' " + (state.combosTox ? "checked" : "") + " onchange=\"App.setCombosTox(this.checked)\"><span><b>Autoriser les combinaisons toxiques</b> — par défaut, un joueur/paire n'est pas inscrit sur deux familles le même jour (ex. simple <i>et</i> mixte) : aucun chevauchement possible. Cochez cette option seulement si le dimensionnement du tournoi permet de telles combinaisons : l'échéancier sérialise alors les familles dans chaque journée (simples, puis mixte, puis doubles), pour qu'un joueur/paire ne soit jamais attendu sur deux familles à la fois.</span></label>" +
@@ -1068,7 +1110,7 @@ function estimationCard() {
   // de chaque journée — le repos de 20 min, l'alternance et le déroulé par
   // tours font que la capacité réelle est plus faible que la théorique
   const realPlan = computePlan(state.tabs, state.jours, state.dureeMatch, state.marge, state.combosTox, state.finalesFin,
-    new Set(Object.keys(state.wf).filter((k) => state.wf[k])));
+    new Set(Object.keys(state.wf).filter((k) => state.wf[k])), state.cadence);
   const realJour = {};
   joursKeys.forEach(function (j) {
     const rms = realPlan.perDay[j] || [];
@@ -1105,7 +1147,7 @@ function estimationCard() {
 function renderTournoi() {
   // W.O. (forfaits) cochés en direct : exclus de la planification
   const plan = computePlan(state.tabs, state.jours, state.dureeMatch, state.marge, state.combosTox, state.finalesFin,
-    new Set(Object.keys(state.wf).filter((k) => state.wf[k])));
+    new Set(Object.keys(state.wf).filter((k) => state.wf[k])), state.cadence);
   // durée effective d'un match : celle du jour de sa planification, sinon commune
   const mduree = (m) => (m.duree !== undefined ? m.duree : dureeCalc());
   // pause déjeuner formatée du jour (null = pas de pause définie)
@@ -1339,6 +1381,7 @@ Object.assign(App, {
   supprJour: (j) => { delete state.jours[j]; render(); },
   setNum: (f, v) => { state[f] = v === "" ? "" : parseInt(v, 10); },
   setCombosTox: (v) => { state.combosTox = !!v; render(); },
+  setCadence: (v) => { state.cadence = Math.min(1, Math.max(0, parseFloat(v) || 0)); render(); },
   setTheme: (v) => { state.theme = ["bad18", "dark"].indexOf(v) >= 0 ? v : "classique"; render(); },
   setTab: (i, f, v) => { state.tabs[i][f] = v; render(); },
   setTabSilent: (i, f, v) => { state.tabs[i][f] = v; },
@@ -1395,7 +1438,7 @@ Object.assign(App, {
   },
   exportCsv: () => {
     const plan = computePlan(state.tabs, state.jours, state.dureeMatch, state.marge, state.combosTox, state.finalesFin,
-      new Set(Object.keys(state.wf).filter((k) => state.wf[k])));
+      new Set(Object.keys(state.wf).filter((k) => state.wf[k])), state.cadence);
     const rows = [["Jour", "Appel", "Debut", "Terrain", "N°", "Tableau", "Tour", "Rencontre", "Attente"]];
     plan.days.forEach((day) => {
       (plan.perDay[day] || []).slice().sort((a, b) => a.time - b.time || a.court - b.court).forEach((m) => {

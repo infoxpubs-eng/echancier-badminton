@@ -317,6 +317,49 @@ mélangent les journées d'un même tableau.
    tous ceux du samedi et que l'ordre (jour, heure, terrain) est
    croissant.
 
+## 2026-10-01 — Option « cadence par vagues » + reproduction ITB7 (v1.8)
+
+Restitution du tournoi réel INTO THE BAD 7 (13-14 juin 2026, Paris,
+8 terrains, créneaux de 34 min) depuis son échéancier officiel BadNet
+v5.0 : structure reproduite à l'identique (23 tableaux, 187 matchs
+samedi + 121 dimanche, poules de 3 à 1-2 sortants, poules uniques de 4
+et de 5, brackets à 2 exempts) et programmation équivalente (samedi
+22:41 vs ~22:47, dimanche 18:34 vs ~18:26 ; tout tient, zéro W.O.).
+Analyse comparative complète dans `docs/analyse-itb7.md` ; décisions
+sur les suites : tickets #17 (clôt) et #18.
+
+1. **Nouveau test de régression** `tests/itb7-test.js` (14ᵉ fichier) :
+   reconstitution du tournoi complet depuis le PDF BadNet, garde-fous de
+   structure (nombre de matchs par tableau identique à BadNet, 187/121),
+   invariants (repos 20 min, ordre strict des tours, sources-fid),
+   fenêtres par tableau comparées à la référence, et rejeu du tournoi à
+   chaque réglage de cadence.
+2. **Option « cadence par vagues »** (paramètre des trois versions) :
+   `Souple (défaut)` = entrelacement actuel, priorité au joueur qui
+   attend le plus ; `Resserrée` = battement régulier interpolé
+   (20 min → durée d'un créneau) entre les tours d'une même poule ;
+   `Vagues strictes` = le tour r d'un tableau démarre après la fin du
+   tour r-1 du tableau entier (rythme cadencé type BadNet). Le repos
+   minimum de 20 min reste garanti dans tous les cas ; comportement par
+   défaut inchangé (8ᵉ argument de `computePlan`, inclus dans les
+   configurations enregistrées et l'export JSON).
+3. **Étude comparative (rejeu ITB7)** — cadence vs méthode actuelle :
+
+   | réglage | fin sam | fin dim | att ≥ 1 h | attMax | attMoy |
+   |---|---|---|---|---|---|
+   | Souple (défaut) | 22:41 | 18:34 | 89 | 136 | 65 |
+   | Resserrée (battement 27 min) | 22:41 | 18:41 | 89 | 136 | 65 |
+   | Vagues strictes | 23:15 | 18:14 | 132 | 204 | 92 |
+
+   Conclusion : sur ce scénario, l'entrelacement à démarrage progressif
+   gagne du temps (samedi −34 min) et réduit nettement les attentes
+   (89 vs 132 attentes ≥ 1 h) ; les vagues strictes n'améliorent que la
+   fin du dimanche (−20 min). Le souple reste le défaut ; l'option est
+   disponible pour un juge-arbitre privilégiant un rythme cadencé.
+
+Aucun changement de planification par défaut : métriques de référence
+inchangées (att60=75, attMax=112, attMoy=51 ; 350 matchs).
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :

@@ -1,4 +1,4 @@
-# Analyse ITB7 — Restitution du tournoi réel et comparaison BadNet
+# INTO THE BAD 7 (2026) — Restitution comparative
 
 **Tournoi** : INTO THE BAD 7 (2026), Paris, Centre Sportif Micheline Ostermeyer, 13-14 juin — 8 terrains, créneaux de 34 min.
 **Source** : échéancier officiel BadNet v5.0 (PDF, 5 pages).
@@ -74,8 +74,8 @@ Une cible de fin de journée (« tout fini avant 22:30 ») peut servir de contra
 
 | # | Proposition | Décision | Détail |
 |---|---|---|---|
-| A | Intégrer le test de reproduction ITB7 à la suite (14ᵉ fichier) | **Retenu** | Scénario réel de régression ; le fichier de test local a été perdu avec l'environnement, à reconstruire |
-| B | Option « cadence par vagues » pour l'ordonnancement | **Retenu — avec étude comparative** | Voir § 6 : itérer avec la méthode actuelle (entrelacement + démarrages progressifs) pour estimer qui gagne du temps, repos min 20 min garanti |
+| A | Intégrer le test de reproduction ITB7 à la suite (14ᵉ fichier) | **Retenu — implémenté (v1.8)** | Scénario réel de régression (23/23 tableaux, 187/121 matchs) |
+| B | Option « cadence par vagues » pour l'ordonnancement | **Retenu — implémenté (v1.8)** avec étude comparative | Voir § 6-7 : le souple domine sur ce scénario ; l'option reste disponible |
 | C | Créneaux différenciés par tour (34/60 min finales) | **Retenu — en option** | Proposé en paramètre, pas en comportement par défaut |
 | D | Optimisation locale (hill-climbing / recuit) | **Différé** | À reproposer plus tard |
 | E | Import d'inscriptions réelles + seed par cote | **Différé** | À reproposer plus tard |
@@ -88,14 +88,26 @@ Une cible de fin de journée (« tout fini avant 22:30 ») peut servir de contra
 | L | Export PDF officiel + écrans de salle | **Retenu** | |
 | M | Profils utilisateurs / lien public | **Différé — v3.0** | Recale le « v2.0 » initial du ticket #10 |
 
-## 6. Méthode proposée pour B — cadence par vagues vs entrelacement
+## 6. Méthode de l'étude B — cadence par vagues vs entrelacement
 
 **Invariant commun** : un joueur ou une paire ne peut pas jouer son tour suivant sans un repos **minimum de 20 min** (les deux méthodes le garantissent ; c'est une contrainte, pas un réglage).
 
-**Étape 1 — Paramètre** : implémenter la cadence par vagues comme option par tournoi, réglable de 0 (entrelacement souple actuel) à 1 (vagues strictes type BadNet).
+**Étape 1 — Paramètre** : cadence par vagues comme option par tournoi, réglable de 0 (entrelacement souple actuel) à 1 (vagues strictes type BadNet) ; à mi-course, battement régulier interpolé (20 min → durée d'un créneau) entre les tours d'une même poule.
 
-**Étape 2 — Mesure** : rejouer le scénario ITB7 (23 tableaux, 308 matchs) aux deux extrêmes et à des valeurs intermédiaires. Métriques : heure de fin de journée, heure de fin par tableau, attente max, attente moyenne, nombre d'attentes ≥ 1 h.
+**Étape 2 — Mesure** : rejeu du scénario ITB7 (23 tableaux, 308 matchs) aux réglages 0, 0.5 et 1. Métriques : heure de fin de journée, attente max, attente moyenne, nombre d'attentes ≥ 1 h.
 
 **Étape 3 — Critère de choix** : une méthode n'est retenue que si elle finit la journée plus tôt à contraintes égales, ou si elle réduit sensiblement les attentes ≥ 1 h sans retarder la fin.
 
-**Hypothèse de travail (méthode la plus réaliste)** : conserver l'entrelacement avec démarrage progressif comme défaut — il est auto-correcteur le jour J (retards, forfaits, W.O.) là où des vagues strictes se dégradent en cascade dès qu'un match déborde. La cadence par vagues, si l'étude le confirme, s'appliquerait en priorité aux tours de poules (là où se concentrent les attentes longues), en laissant les tableaux à élimination directe en démarrage progressif. Décision finale sur la base des mesures de l'étape 2.
+**Hypothèse de travail initiale** : conserver l'entrelacement avec démarrage progressif comme défaut — auto-correcteur le jour J (retards, forfaits, W.O.) là où des vagues strictes se dégradent en cascade dès qu'un match déborde.
+
+## 7. Résultat de l'étude — cadence par vagues (v1.8)
+
+L'option est implémentée dans les trois versions (paramètre « Cadence des tours de poule » : Souple / Resserrée / Vagues strictes). Le tournoi a été rejoué aux trois réglages (`tests/itb7-test.js`) :
+
+| Réglage | Fin samedi | Fin dimanche | Attentes ≥ 1 h | Attente max | Attente moy |
+|---|---|---|---|---|---|
+| Souple (défaut — entrelacement + démarrage progressif) | 22:41 | 18:34 | **89** | 136 | **65** |
+| Resserrée (battement 27 min entre tours d'une poule) | 22:41 | 18:41 | 89 | 136 | 65 |
+| Vagues strictes (type BadNet) | 23:15 | **18:14** | 132 | 204 | 92 |
+
+Conformément au critère de l'étape 3, **l'hypothèse de travail est confirmée par la mesure** : l'entrelacement souple gagne du temps (samedi −34 min) et réduit nettement les attentes (89 vs 132 ≥ 1 h ; max 136 vs 204) ; les vagues strictes ne conservent que la régularité organisationnelle du rythme et −20 min sur la fin du dimanche. **Le souple reste le comportement par défaut** ; l'option « cadence par vagues » reste disponible pour un juge-arbitre qui privilégie un rythme cadencé tour par tour.

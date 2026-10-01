@@ -328,14 +328,65 @@ listes.
 
 ---
 
+## 2026-10-01 — Lot 11 : analyse ITB7 + option « cadence par vagues » (v1.8)
+
+Demandes (tickets #17 et #18) : consigner la restitution du tournoi
+réel INTO THE BAD 7 (fait : `docs/analyse-itb7.md`), arbitrer les
+suites A-M, puis implémenter B « cadence par vagues » avec étude
+comparative contre la méthode actuelle — l'invariant étant qu'un
+joueur/paire ne peut pas jouer son tour suivant sans un repos minimum
+de 20 min.
+
+| Demande | Décision | État |
+|---|---|---|
+| A. Test de reproduction ITB7 dans la suite | Retenu | Implémenté (v1.8) |
+| B. Cadence par vagues + étude comparative | Retenu | Implémenté (v1.8) — le souple domine sur ITB7 |
+| C. Créneaux différenciés par tour (34/60 min finales) | Retenu, en option dans les paramètres | À faire |
+| D. Optimisation locale (fonction de coût réglable) | Différé | À reproposer plus tard |
+| E. Import d'inscriptions réelles + seed par cote | Différé | À reproposer plus tard |
+| F. Durées par discipline (simple vs double) | Retenu | À faire |
+| G. Terrains variables en cours de journée (± X/Y avec heure de changement) | Retenu | À faire |
+| H. Vue « mon planning joueur » | Différé (conditionné à E) | En attente |
+| I. Suivi direct enrichi (dérive cumulée, replanification) | Retenu | À faire |
+| J. Disponibilités par joueur | Différé (conditionné à E) | En attente |
+| K. Mode what-if | Retenu | À faire |
+| L. Export PDF officiel + écrans de salle | Retenu | À faire |
+| M. Profils utilisateurs / lien public | Différé — v3.0 | En attente |
+
+- **Implémentation B** : 8ᵉ argument `cadence` de `computePlan`
+  (0 → 1). À mi-course, battement minimal interpolé entre la fin du
+  tour précédent d'une poule et le début du suivant (20 min → durée
+  d'un créneau) ; à 1, vague stricte par tableau (le tour r attend la
+  fin du tour r-1 du tableau entier). Sélecteur dans les paramètres des
+  trois versions, inclus dans snapshot/import JSON. Repos 20 min
+  garanti dans tous les cas.
+- **Étude comparative (rejeu ITB7, 308 matchs)** : souple 89 attentes
+  ≥ 1 h (max 136, moy 65), samedi fini 22:41 ; vagues strictes 132
+  attentes ≥ 1 h (max 204, moy 92), samedi 23:15, dimanche 18:14.
+  Conformément au critère retenu (« ne retenir une méthode que si elle
+  finit plus tôt à contraintes égales ou réduit sensiblement les
+  attentes ≥ 1 h sans retarder la fin »), **l'hypothèse de travail est
+  invalidée par la mesure sur ce scénario** : l'entrelacement souple à
+  démarrage progressif gagne du temps et réduit les attentes ; les
+  vagues strictes ne conservent comme avantage que la régularité
+  organisationnelle du rythme (et −20 min sur la fin du dimanche).
+  Le souple reste donc le comportement par défaut, l'option est
+  disponible au cas par cas.
+- **Test A** : `tests/itb7-test.js` — structure 23/23 identique
+  (187/121 matchs, exempts inclus), invariants, fenêtres vs BadNet,
+  rejeu aux trois réglages de cadence.
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation
 dans les trois versions (app React, web, hors-ligne) → régénération web
 (`tests/regen-web.sh`) → suite complète de tests (`tests/`) → CHANGELOG →
-commit descriptif → push. La suite compte 13 fichiers de test (dont
+commit descriptif → push. La suite compte 14 fichiers de test (dont
 `presets-test.js` depuis la v1.5, `byes-test.js` depuis la v1.5.1 —
-étendu en v1.6 pour l'ordre strict des tours — et `ordre-jours-test.js`
-depuis la v1.7). Les métriques de référence depuis
+étendu en v1.6 pour l'ordre strict des tours —, `ordre-jours-test.js`
+depuis la v1.7 et `itb7-test.js` depuis la v1.8). Les métriques de
+référence depuis
 la v1.6 (base 350 matchs : att60 = 75, max 112, moy 51 ; finalesFin
 77/112/52 ; poules→demis ≤ 150 min) servent de garde-fous de régression.
