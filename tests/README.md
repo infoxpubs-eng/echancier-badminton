@@ -10,6 +10,7 @@ Tous les tests s'exécutent depuis la racine du dépôt : `node tests/<fichier>`
 | `deux-jours-test.js` | tableaux « les deux jours » : reprise du jour 2 à l'ouverture (pas d'ancrage sur l'horloge du jour 1), ordre des tours, repos, attentes inter-jours non mesurables |
 | `render-config-test.js` | 15 840 cas : écran de configuration + marge réelle (4 scénarios) |
 | `offline-render-test.js` | 95 contrôles de la version hors-ligne (dont N°, ≈, marge réelle, fonds colorés) |
+| `presets-test.js` | 21 contrôles v1.5 : configurations enregistrées (save/charger/supprimer, auto-save « Dernière (auto) », export/import JSON), thème dark (état + classes body), palette invariante (chips de marge à couleurs fixes, attentes hex inchangés) |
 | `offline-swiss-test.js` | ronde suisse dans la version hors-ligne |
 | `exempts-scroll-test.js` | exempts (effectif impair) + conservation du défilement |
 | `metrics.js` | métriques de référence (350 matchs, att60/attMax/attMoy, poules→demis ≤ 150) |

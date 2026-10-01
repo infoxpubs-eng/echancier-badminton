@@ -93,6 +93,39 @@ type: "text/html"
   body.theme-bad18 .ok { background: #fef2f2; border-color: #fca5a5; }
   body.theme-bad18 .poolbox { background: #fef2f2; border-color: #fecaca; }
   body.theme-bad18 .stat { border-color: #fecaca; }
+  /* ---------- thème « dark » (bleu nuit, textes clairs) — les couleurs
+     d'attentes (pastilles ATT_STEPS, hex inline) et de marges (chips avec
+     fond) sont IDENTIQUES au mode classique : elles ne changent pas avec
+     le thème ---------- */
+  body.theme-dark { --em: #34d399; --em-l: #1a2c47; --em-d: #a7f3d0; background: linear-gradient(180deg, #0b1220, #101a2c); color: #e2e8f0; }
+  body.theme-dark h1, body.theme-dark h3, body.theme-dark h4 { color: #e2e8f0; }
+  body.theme-dark .card { background: #101a2c; border-color: #1f2b40; }
+  body.theme-dark label { color: #6ee7b7; }
+  body.theme-dark input[type="text"], body.theme-dark input[type="number"],
+  body.theme-dark input[type="time"], body.theme-dark textarea, body.theme-dark select {
+    background: #0b1220; border-color: #243a55; color: #e2e8f0; }
+  body.theme-dark .btn-o, body.theme-dark .live-btn { background: #101a2c; border-color: #243a55; }
+  body.theme-dark .btn-x, body.theme-dark .wochip { background: #101a2c; }
+  body.theme-dark .tabs { background: #101a2c; border-color: #1f2b40; }
+  body.theme-dark .tab { color: #a7f3d0; }
+  body.theme-dark .tab.on { background: #134e4a; color: #d1fae5; }
+  body.theme-dark th { color: #6ee7b7; border-bottom-color: #243a55; }
+  body.theme-dark td { border-bottom-color: #1f2b40; }
+  body.theme-dark .court { background: #134e4a; color: #d1fae5; }
+  body.theme-dark .stat { background: #101a2c; border-color: #1f2b40; }
+  body.theme-dark .stat b { color: #e2e8f0; }
+  body.theme-dark .stat i { color: #64748b; }
+  body.theme-dark .ok { background: #16233a; border-color: #243a55; color: #a7f3d0; }
+  body.theme-dark .warn { background: #1f2937; border-color: #7f1d1d; color: #f87171; }
+  body.theme-dark .poolbox { background: #16233a; border-color: #243a55; }
+  body.theme-dark .prow td { background: #1f2937; color: #fbbf24; border-bottom-color: #374151; }
+  body.theme-dark .mut { color: #64748b; }
+  body.theme-dark .appel { color: #fbbf24; }
+  body.theme-dark footer { color: #6ee7b7; }
+  /* textes d'avertissement rouges inline SANS fond : éclaircis pour rester
+     lisibles sur fond sombre — les chips de marges (avec fond) gardent
+     leurs couleurs du mode classique */
+  body.theme-dark [style*="b91c1c"]:not([style*="background"]) { color: #f87171 !important; }
 </style>
 </head>
 <body>
@@ -287,6 +320,41 @@ const state = {
   finis: {},
   wf: {},
 };
+
+/* ---------- configurations enregistrées (localStorage si disponible,
+   sinon mémoire de la session) : sauver/recharger une config de départ,
+   export/import JSON — « Dernière (auto) » est écrasée à chaque
+   génération de l'échéancier ---------- */
+const CFG_AUTO = "Dernière (auto)";
+let CFG_MEM = {};
+function cfgStoreRead() {
+  try { return JSON.parse(localStorage.getItem("echancier-configs-v1") || "{}") || {}; } catch (e) { return CFG_MEM; }
+}
+function cfgStoreWrite(o) {
+  CFG_MEM = o;
+  try { localStorage.setItem("echancier-configs-v1", JSON.stringify(o)); } catch (e) {}
+}
+function cfgNames() {
+  return Object.keys(cfgStoreRead()).sort((a, b) => (a === CFG_AUTO ? -1 : b === CFG_AUTO ? 1 : a.localeCompare(b)));
+}
+function cfgSnapshot() {
+  return {
+    jours: JSON.parse(JSON.stringify(state.jours)), tabs: JSON.parse(JSON.stringify(state.tabs)),
+    dureeMatch: state.dureeMatch, marge: state.marge, combosTox: state.combosTox,
+    finalesFin: state.finalesFin, theme: state.theme,
+  };
+}
+function cfgApply(c) {
+  if (!c || typeof c !== "object") return false;
+  if (c.jours && typeof c.jours === "object") state.jours = JSON.parse(JSON.stringify(c.jours));
+  if (Array.isArray(c.tabs)) state.tabs = JSON.parse(JSON.stringify(c.tabs));
+  if (c.dureeMatch !== undefined) state.dureeMatch = c.dureeMatch;
+  if (c.marge !== undefined) state.marge = c.marge;
+  if (c.combosTox !== undefined) state.combosTox = !!c.combosTox;
+  if (c.finalesFin !== undefined) state.finalesFin = !!c.finalesFin;
+  if (c.theme) state.theme = c.theme;
+  return true;
+}
 
 const App = {};
 
@@ -863,17 +931,42 @@ function renderConfig() {
       "<div><label>Thème d'affichage</label><select class='w130' onchange=\\\"App.setTheme(this.value)\\\">" +
         "<option value='classique' " + (state.theme === "classique" ? "selected" : "") + ">Classique (vert)</option>" +
         "<option value='bad18' " + (state.theme === "bad18" ? "selected" : "") + ">Bad18 (rouge et noir)</option>" +
+        "<option value='dark' " + (state.theme === "dark" ? "selected" : "") + ">Dark (sombre)</option>" +
       "</select></div></div>" +
       "<p style='font-size:.72rem;color:var(--em);margin:6px 0 0'>La marge de sécurité est ajoutée à chaque match de l'échéancier théorique : si un match réel dépasse sa durée prévue (jusqu'à cette marge), les matchs suivants restent à l'heure et le repos réel ne descend jamais sous " + REPOS + " min. Au-delà, le respect du repos passe avant l'heure affichée : les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</p>" +
       "<label style='display:flex;gap:8px;margin:12px 0 0;cursor:pointer;font-size:.85rem;color:var(--em-d)'><input type='checkbox' style='width:auto' " + (state.combosTox ? "checked" : "") + " onchange=\"App.setCombosTox(this.checked)\"><span><b>Autoriser les combinaisons toxiques</b> — par défaut, un joueur/paire n'est pas inscrit sur deux familles le même jour (ex. simple <i>et</i> mixte) : aucun chevauchement possible. Cochez cette option seulement si le dimensionnement du tournoi permet de telles combinaisons : l'échéancier sérialise alors les familles dans chaque journée (simples, puis mixte, puis doubles), pour qu'un joueur/paire ne soit jamais attendu sur deux familles à la fois.</span></label>" +
       "<p style='font-size:.75rem;color:var(--em);margin:12px 0 0'><b>Demi-finales et finales en fin de journée</b> : cette option se règle désormais pour chaque jour (case à cocher dans la carte du jour ci-dessus).</p>" +
     "</div>" +
+    presetsCard() +
     estimationCard() +
     "<h3>📋 Tableaux (discipline × classement)</h3>" +
     '<div class="grid2" style="grid-template-columns:1fr;margin:8px 0">' + state.tabs.map(tabCard).join("") + "</div>" +
     '<button class="btn btn-o" onclick="App.ajoutTab()">＋ Ajouter un tableau</button>' +
     '<div style="height:12px"></div>' +
     '<button class="btn" style="width:100%;padding:14px;font-size:1rem" onclick="App.generer()">Générer l\'échéancier 🏸</button>' +
+  "</div>";
+}
+
+/* ---------- carte des configurations enregistrées ---------- */
+function presetsCard() {
+  const cfgs = cfgStoreRead();
+  const li = cfgNames().map((nom, i) => {
+    const c = cfgs[nom] || {};
+    return "<div class='row' style='gap:8px;flex-wrap:wrap;align-items:center;font-size:.85rem'>" +
+      "<b>" + esc(nom) + "</b> <span class='mut'>" + (c.tabs ? c.tabs.length : 0) + " tableau(x) · " +
+      (c.jours ? Object.keys(c.jours).length : 0) + " jour(s)</span>" +
+      "<button class='btn btn-o' style='padding:4px 10px;font-size:.75rem' onclick=\"App.chargerCfg(" + i + ")\">Charger</button>" +
+      "<button class='btn btn-x' style='padding:4px 10px;font-size:.75rem' onclick=\"App.supprCfg(" + i + ")\">Supprimer</button></div>";
+  }).join("");
+  return '<div class="card" style="margin-bottom:16px"><h3>💾 Configurations enregistrées</h3>' +
+    '<p style="font-size:.72rem;color:var(--em)">Sauvegardez une configuration de départ (jours, tableaux, durées, thème) pour y revenir ensuite ; exportez-la en JSON pour l\'archiver ou la transférer, puis réimportez-la. La configuration « Dernière (auto) » est mise à jour à chaque génération.</p>' +
+    "<div class='row' style='gap:8px;flex-wrap:wrap'>" +
+      "<input type='text' id='cfgNom' placeholder=\"Nom de la configuration\" style='flex:1;min-width:170px'>" +
+      "<button class='btn' onclick=\"App.saveCfg()\">Enregistrer</button>" +
+      "<button class='btn btn-o' onclick=\"App.exportCfg()\">⬇ Exporter JSON</button>" +
+      "<label class='btn btn-o' style='cursor:pointer'>⬆ Importer JSON<input type='file' accept='application/json,.json' style='display:none' onchange=\"App.importCfgFile(this)\"></label>" +
+    "</div>" +
+    (li ? "<div style='margin-top:10px;display:flex;flex-direction:column;gap:4px'>" + li + "</div>" : "") +
   "</div>";
 }
 
@@ -924,16 +1017,12 @@ function estimationCard() {
     const cap = capJour(j);
     const besoin = besoinFixe[j] || 0;
     const marge = cap - besoin;
-    const cell = state.jours[j].actif
-      ? (marge >= 0 ? "<span style='color:var(--em-d);font-weight:700'>✓ +" + marge + "</span>"
-                     : "<span style='color:#b91c1c;font-weight:700'>⚠ " + marge + "</span>")
-      : "<span class='mut'>—</span>";
+    // pastille à couleurs FIXES : identique au mode classique dans tous les
+    // thèmes (bad18, dark) — insensible aux variables CSS du thème
+    const chip = (ok, txt) => "<span style='display:inline-block;border-radius:6px;padding:1px 8px;white-space:nowrap;font-weight:700;background:" + (ok ? "#dcfce7" : "#fee2e2") + ";color:" + (ok ? "#065f46" : "#b91c1c") + "'>" + txt + "</span>";
+    const cell = state.jours[j].actif ? chip(marge >= 0, marge >= 0 ? "✓ +" + marge : "⚠ " + marge) : "<span class='mut'>—</span>";
     const mr = realJour[j].margeReelle;
-    const cellReal = state.jours[j].actif
-      ? (mr === null ? "<span class='mut'>—</span>"
-        : (mr >= 0 ? "<span style='color:var(--em-d);font-weight:700'>✓ +" + mr + " min</span>"
-                   : "<span style='color:#b91c1c;font-weight:700'>⚠ " + mr + " min</span>"))
-      : "<span class='mut'>—</span>";
+    const cellReal = state.jours[j].actif ? (mr === null ? "<span class='mut'>—</span>" : chip(mr >= 0, (mr >= 0 ? "✓ +" + mr : "⚠ " + mr) + " min")) : "<span class='mut'>—</span>";
     return "<tr><td style='font-weight:600'>" + j + (state.jours[j].actif ? "" : " (inactif)") + "</td><td class='mono'>" + (state.jours[j].actif ? cap : "—") + "</td><td class='mono'>" + (besoin || "—") + "</td><td class='mono' style='color:var(--em)'>" + besoinDeux + "</td><td class='mono'>" + cell + "</td><td class='mono'" + (state.jours[j].actif && realJour[j].nb ? " title=\"dont " + realJour[j].deux + " match(s) de tableaux « les deux jours » (non comptés dans le besoin fixe) + " + (realJour[j].nb - realJour[j].deux) + " de tableaux fixés au jour\"" : "") + ">" + (state.jours[j].actif ? realJour[j].nb + (realJour[j].deux > 0 ? " <span style='color:var(--em)'>(" + realJour[j].deux + " deux-jours)</span>" : "") : "—") + "</td><td class='mono'>" + cellReal + "</td></tr>";
   }).join("");
   const builtAll = state.tabs.map((t, k) => buildTab(t, k));
@@ -1099,11 +1188,11 @@ function viewSynthese(plan, statsJour) {
       (b.suisse ? (b.seule ? "classement final" : b.Q + " qualifié(s)") : b.P === 0 ? "—" : b.P === 1 ? "poule unique" : b.Q + "/poule → " + b.P * b.Q + " qual.") + "</td><td style='font-size:.75rem;color:var(--em)'>" + esc(parcoursStr(b, plan.cuts[b.tid])) + "</td><td class='mono'>" +
       ms.length + (nbForf > 0 ? " <span style='color:#b45309;font-size:.7rem'>· " + nbForf + " W.O.</span>" : "") + (ms.length + nbForf < totalM ? " <span style='color:#b91c1c;font-size:.7rem'>(+" + (totalM - ms.length - nbForf) + " non planifiés)</span>" : "") + "</td><td class='mono' style='font-size:.72rem'>" +
       joursAbbr + " · " + fmtTime(prem) + " → " + fmtTime(dern) + "</td><td class='mono' style='font-size:.72rem'>" +
-      "<span style='text-transform:capitalize'>" + dernM.day + "</span> " + fmtTime(dernM.end) + (dep > 0 ? " <span style='color:#b91c1c;font-weight:700' title=\"fin estimée au-delà de l'horaire officiel du jour\">⚠️ +" + dep + " min</span>" : "") + "</td><td>" + attBadgeHtml(st.max) + "</td></tr>";
+      "<span style='text-transform:capitalize'>" + dernM.day + "</span> " + fmtTime(dernM.end) + (dep > 0 ? " <span style='display:inline-block;border-radius:6px;padding:1px 8px;white-space:nowrap;font-weight:700;background:#fee2e2;color:#b91c1c' title=\"fin estimée au-delà de l'horaire officiel du jour\">⚠️ +" + dep + " min</span>" : "") + "</td><td>" + attBadgeHtml(st.max) + "</td></tr>";
   }).join("");
   const dayCards = statsJour.map((s) => '<div class="card"><h4 style="text-transform:capitalize">' + s.day + "</h4>" +
     "<div style='font-size:.8rem;color:var(--em-d)'>" + s.nb + " matchs · " + fmtTime(s.debut) + " → " + (s.nb ? fmtTime(s.derniereFin) : "—") +
-    (s.depasse ? " <b style='color:#b91c1c'>⚠️ horaire de fin modifié : +" + (-s.marge) + " min</b>" : "") + "</div>" +
+    (s.depasse ? " <b style='display:inline-block;border-radius:6px;padding:1px 8px;white-space:nowrap;background:#fee2e2;color:#b91c1c'>⚠️ horaire de fin modifié : +" + (-s.marge) + " min</b>" : "") + "</div>" +
     "<div style='font-size:.7rem;color:#94a3b8'>attente max " + s.attMax + " min · moyenne " + s.attMoy + " min</div></div>").join("");
   return '<div class="card" style="margin-bottom:14px"><h3>📋 Structure des tableaux — vue d\'ensemble</h3>' +
     '<div style="overflow-x:auto"><table><thead><tr><th>Tableau</th><th>Inscrits</th><th>Poules</th><th>Sortants</th><th>Parcours</th><th>Matchs</th><th>Horaire</th><th>Fin estimée</th><th>Attente max</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
@@ -1167,7 +1256,7 @@ function viewTab(plan, tid) {
 
 /* ---------- actions ---------- */
 Object.assign(App, {
-  generer: () => { state.phase = "tournoi"; state.vueTab = "synthese"; render(true); },
+  generer: () => { const o = cfgStoreRead(); o[CFG_AUTO] = cfgSnapshot(); cfgStoreWrite(o); state.phase = "tournoi"; state.vueTab = "synthese"; render(true); },
   backToConfig: () => { state.phase = "config"; render(true); },
   setVueTab: (k) => { state.vueTab = k; render(true); },
   setJour: (j, f, v) => { state.jours[j][f] = v; render(); },
@@ -1183,7 +1272,7 @@ Object.assign(App, {
   supprJour: (j) => { delete state.jours[j]; render(); },
   setNum: (f, v) => { state[f] = v === "" ? "" : parseInt(v, 10); },
   setCombosTox: (v) => { state.combosTox = !!v; render(); },
-  setTheme: (v) => { state.theme = v === "bad18" ? "bad18" : "classique"; render(); },
+  setTheme: (v) => { state.theme = ["bad18", "dark"].indexOf(v) >= 0 ? v : "classique"; render(); },
   setTab: (i, f, v) => { state.tabs[i][f] = v; render(); },
   setTabSilent: (i, f, v) => { state.tabs[i][f] = v; },
   setTabNum: (i, f, v) => { state.tabs[i][f] = v === "" ? "" : parseInt(v, 10); render(); },
@@ -1192,6 +1281,51 @@ Object.assign(App, {
   setLive: (v) => { state.live = !!v; render(); },
   toggleFini: (k) => { state.finis[k] = !state.finis[k]; render(); },
   setForfait: (k, v) => { state.wf[k] = !!v; render(); },
+  saveCfg: (nom) => {
+    const n = String(nom || (document.getElementById("cfgNom") || {}).value || "").trim();
+    if (!n) return;
+    const o = cfgStoreRead();
+    o[n] = cfgSnapshot();
+    cfgStoreWrite(o);
+    render();
+  },
+  chargerCfg: (i) => {
+    const names = cfgNames();
+    if (names[i] && cfgApply(cfgStoreRead()[names[i]])) render(true);
+  },
+  supprCfg: (i) => {
+    const names = cfgNames();
+    const o = cfgStoreRead();
+    delete o[names[i]];
+    cfgStoreWrite(o);
+    render();
+  },
+  exportCfg: () => {
+    const data = JSON.stringify({ app: "echancier-badminton", version: 1, config: cfgSnapshot() }, null, 2);
+    try {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+      a.download = "echancier-config.json";
+      // iOS Safari exige que l'ancre soit dans le document pour déclencher le téléchargement
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {}
+    return data;
+  },
+  importCfgFile: (input) => {
+    const f = input && input.files && input.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => App.importCfgData(String(r.result));
+    r.readAsText(f);
+  },
+  importCfgData: (txt) => {
+    try {
+      const d = JSON.parse(String(txt));
+      if (cfgApply(d && d.config ? d.config : d)) render(true);
+    } catch (e) {}
+  },
   exportCsv: () => {
     const plan = computePlan(state.tabs, state.jours, state.dureeMatch, state.marge, state.combosTox, state.finalesFin,
       new Set(Object.keys(state.wf).filter((k) => state.wf[k])));
@@ -1221,6 +1355,7 @@ function render(top) {
   // position de défilement (saisie dans le formulaire de configuration)
   const sc = top ? 0 : (window.scrollY || 0);
   document.body.classList.toggle("theme-bad18", state.theme === "bad18");
+  document.body.classList.toggle("theme-dark", state.theme === "dark");
   document.getElementById("root").innerHTML = state.phase === "config" ? renderConfig() : renderTournoi();
   window.scrollTo(0, sc);
 }

@@ -170,11 +170,11 @@ const qualLabel = (q) => {
    finales, celle du qualifié issu de la source finie le plus tôt.
    Tranches de 30 min à partir de 1h. */
 const ATT_STEPS = [
-  { max: 30, cls: "bg-emerald-600 text-white", lbl: "< 30 min" },
-  { max: 60, cls: "bg-emerald-100 text-emerald-800", lbl: "30 min – 1h" },
-  { max: 90, cls: "bg-yellow-200 text-yellow-900", lbl: "1h – 1h30" },
-  { max: 120, cls: "bg-orange-200 text-orange-900", lbl: "1h30 – 2h" },
-  { max: Infinity, cls: "bg-red-200 text-red-900", lbl: "≥ 2h" },
+  { max: 30, cls: "attb-1", lbl: "< 30 min" },
+  { max: 60, cls: "attb-2", lbl: "30 min – 1h" },
+  { max: 90, cls: "attb-3", lbl: "1h – 1h30" },
+  { max: 120, cls: "attb-4", lbl: "1h30 – 2h" },
+  { max: Infinity, cls: "attb-5", lbl: "≥ 2h" },
 ];
 const attStep = (w) => ATT_STEPS.find((s) => w < s.max) || ATT_STEPS[ATT_STEPS.length - 1];
 const attFmt = (w) => w >= 60 ? Math.floor(w / 60) + "h" + (w % 60 ? String(w % 60).padStart(2, "0") : "") : w + " min";
@@ -369,6 +369,15 @@ function cutsDeuxJours(built, jours, duree) {
   return res;
 }
 
+/* ---------- configurations enregistrées : sauver/recharger une config
+   de départ, export/import JSON — « Dernière (auto) » est écrasée à
+   chaque génération (localStorage si disponible, sinon rien) ---------- */
+const CFG_KEY = "echancier-configs-v1";
+const CFG_AUTO = "Dernière (auto)";
+const cfgStore = {
+  read() { try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}") || {}; } catch (e) { return {}; } },
+  write(o) { try { localStorage.setItem(CFG_KEY, JSON.stringify(o)); } catch (e) {} },
+};
 /* ---------- moteur d'ordonnancement ---------- */
 /* Pour chaque jour : simulation événementielle. Chaque terrain a une
    heure de libération ; on prend le terrain libre le plus tôt, et parmi
@@ -722,6 +731,42 @@ const THEME_BAD18_CSS = `
 .theme-bad18 .text-emerald-800 { color: #991b1b !important; }
 .theme-bad18 .text-emerald-900 { color: #7f1d1d !important; }
 `;
+/* ---------- palette sémantique des attentes : couleurs IDENTIQUES dans
+   tous les thèmes (classique, Bad18, dark) — classes dédiées attb-1..5,
+   insensibles aux surcharges CSS des thèmes ---------- */
+const ATT_CSS = `
+.attb-1 { background-color: #059669 !important; color: #ffffff !important; }
+.attb-2 { background-color: #d1fae5 !important; color: #065f46 !important; }
+.attb-3 { background-color: #fef08a !important; color: #713f12 !important; }
+.attb-4 { background-color: #fed7aa !important; color: #7c2d12 !important; }
+.attb-5 { background-color: #fecaca !important; color: #7f1d1d !important; }
+`;
+/* ---------- thème « dark » : fond bleu nuit, textes clairs — les
+   couleurs d'attentes (attb-*) et de marges (pastilles inline) ne
+   changent PAS avec le thème : elles restent celles du mode classique ---------- */
+const THEME_DARK_CSS = `
+body:has(.theme-dark) { background-color: #0b1220 !important; }
+.theme-dark { background-color: #0b1220 !important; color: #e2e8f0 !important; }
+.theme-dark .bg-white { background-color: #101a2c !important; }
+.theme-dark .bg-slate-100 { background-color: #1a2c47 !important; }
+.theme-dark .bg-emerald-50 { background-color: #16233a !important; }
+.theme-dark .bg-emerald-100 { background-color: #1a2c47 !important; }
+.theme-dark .border-emerald-50 { border-color: #1f2b40 !important; }
+.theme-dark .border-emerald-100 { border-color: #243a55 !important; }
+.theme-dark .border-emerald-200 { border-color: #2b4260 !important; }
+.theme-dark .border-emerald-300 { border-color: #33517a !important; }
+.theme-dark .border-emerald-500,
+.theme-dark .focus\\:border-emerald-500:focus { border-color: #33517a !important; }
+.theme-dark .text-slate-500 { color: #64748b !important; }
+.theme-dark .text-slate-600 { color: #94a3b8 !important; }
+.theme-dark .text-emerald-600 { color: #6ee7b7 !important; }
+.theme-dark .text-emerald-700,
+.theme-dark .text-emerald-800 { color: #a7f3d0 !important; }
+.theme-dark .text-emerald-900 { color: #e2e8f0 !important; }
+.theme-dark .text-amber-600 { color: #fbbf24 !important; }
+.theme-dark .text-red-600,
+.theme-dark .text-red-700 { color: #f87171 !important; }
+`;
 /* impression / export PDF : masque les boutons et garde le contenu */
 const PRINT_CSS = `
 @media print {
@@ -763,6 +808,9 @@ function App() {
   const [live, setLive] = useState(false);
   const [finis, setFinis] = useState({});
   const [wf, setWf] = useState({});
+  // configurations enregistrées : { nom: snapshot } — « Dernière (auto) »
+  const [configs, setConfigs] = useState(() => cfgStore.read());
+  const [cfgName, setCfgName] = useState("");
   const forfaitsSet = useMemo(() => new Set(Object.keys(wf).filter((k) => wf[k])), [wf]);
 
   const joursActifs = Object.keys(jours).filter((j) => jours[j].actif);
@@ -783,6 +831,52 @@ function App() {
     return q;
   });
 
+  /* ---------- configurations enregistrées ---------- */
+  const snapshot = () => ({
+    jours: JSON.parse(JSON.stringify(jours)), tabs: JSON.parse(JSON.stringify(tabs)),
+    dureeMatch, marge, combosTox, finalesFin, theme,
+  });
+  const applyCfg = (c) => {
+    if (!c || typeof c !== "object") return;
+    if (c.jours && typeof c.jours === "object") setJours(JSON.parse(JSON.stringify(c.jours)));
+    if (Array.isArray(c.tabs)) setTabs(JSON.parse(JSON.stringify(c.tabs)));
+    if (c.dureeMatch !== undefined) setDureeMatch(c.dureeMatch);
+    if (c.marge !== undefined) setMarge(c.marge);
+    if (c.combosTox !== undefined) setCombosTox(!!c.combosTox);
+    if (c.finalesFin !== undefined) setFinalesFin(!!c.finalesFin);
+    if (c.theme) setTheme(c.theme);
+  };
+  const saveCfg = (nom) => {
+    const n = (nom || cfgName || "").trim();
+    if (!n) return;
+    const o = { ...cfgStore.read(), [n]: snapshot() };
+    cfgStore.write(o);
+    setConfigs(o);
+    setCfgName("");
+  };
+  const delCfg = (nom) => {
+    const o = { ...cfgStore.read() };
+    delete o[nom];
+    cfgStore.write(o);
+    setConfigs(o);
+  };
+  const exportCfg = () => {
+    const data = JSON.stringify({ app: "echancier-badminton", version: 1, config: snapshot() }, null, 2);
+    try {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+      a.download = "echancier-config.json";
+      // Safari/iOS : l'ancre doit être dans le document
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (e) {}
+  };
+  const importCfg = (file) => {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => { try { const d = JSON.parse(String(r.result)); applyCfg(d && d.config ? d.config : d); } catch (e) {} };
+    r.readAsText(file);
+  };
+
   const plan = useMemo(
     () => (phase === "tournoi" ? computePlan(tabs, jours, dureeMatch, marge, combosTox, finalesFin, forfaitsSet) : null),
     [phase, tabs, jours, dureeMatch, marge, combosTox, finalesFin, forfaitsSet]
@@ -795,8 +889,10 @@ function App() {
   /* ---------- écran configuration ---------- */
   if (phase === "config") {
     return (
-      <div className={"mx-auto max-w-4xl space-y-5 p-4" + (theme === "bad18" ? " theme-bad18" : "")}>
+      <div className={"mx-auto max-w-4xl space-y-5 p-4" + (theme === "bad18" ? " theme-bad18" : theme === "dark" ? " theme-dark" : "")}>
         <style>{THEME_BAD18_CSS}</style>
+        <style>{THEME_DARK_CSS}</style>
+        <style>{ATT_CSS}</style>
         <div className={cardCls}>
           <div className="flex items-center gap-3">
             <Bad18Logo size={52} />
@@ -919,6 +1015,7 @@ function App() {
               <select className={inputCls} value={theme} onChange={(e) => setTheme(e.target.value)}>
                 <option value="classique">Classique (vert)</option>
                 <option value="bad18">Bad18 (rouge et noir)</option>
+                <option value="dark">Dark (sombre)</option>
               </select>
             </div>
           </div>
@@ -940,6 +1037,38 @@ function App() {
             <b>Demi-finales et finales en fin de journée</b> : cette option se règle désormais pour chaque jour
             (case à cocher dans la carte du jour ci-dessus).
           </p>
+        </div>
+
+        {/* Configurations enregistrées : sauver, recharger, exporter, importer */ }
+        <div className={cardCls}>
+          <h4 className="mb-2 font-semibold text-emerald-900">💾 Configurations enregistrées</h4>
+          <p className="mb-2 text-xs text-emerald-600">
+            Sauvegardez une configuration de départ (jours, tableaux, durées, thème) pour y revenir ensuite.
+            Un fichier JSON peut être exporté pour l'archiver ou la transférer, puis réimporté.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input className={inputCls + " max-w-xs"} placeholder="Nom de la configuration" value={cfgName}
+              onChange={(e) => setCfgName(e.target.value)} />
+            <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700" onClick={() => saveCfg()}>Enregistrer</button>
+            <button className="rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50" onClick={exportCfg}>⬇ Exporter JSON</button>
+            <label className="cursor-pointer rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50">
+              ⬆ Importer JSON
+              <input type="file" accept="application/json,.json" className="hidden"
+                onChange={(e) => { importCfg(e.target.files && e.target.files[0]); e.target.value = ""; }} />
+            </label>
+          </div>
+          {Object.keys(configs).length > 0 && (
+            <ul className="mt-3 space-y-1">
+              {Object.keys(configs).sort((a, b) => (a === CFG_AUTO ? -1 : b === CFG_AUTO ? 1 : a.localeCompare(b))).map((nom) => (
+                <li key={nom} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium">{nom}</span>
+                  <span className="text-xs text-emerald-600">{configs[nom].tabs ? configs[nom].tabs.length : 0} tableau(x) · {configs[nom].jours ? Object.keys(configs[nom].jours).length : 0} jour(s)</span>
+                  <button className="rounded-lg border border-emerald-300 px-2 py-1 text-xs text-emerald-800 hover:bg-emerald-50" onClick={() => applyCfg(configs[nom])}>Charger</button>
+                  <button className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50" onClick={() => delCfg(nom)}>Supprimer</button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Estimation de capacité par jour */}
@@ -1012,12 +1141,18 @@ function App() {
                         <td className="font-mono">{jours[j].actif ? cap : "—"}</td>
                         <td className="font-mono">{besoin || "—"}</td>
                         <td className="font-mono text-emerald-600">{besoinDeux}</td>
-                        <td className={"font-mono font-semibold " + (jours[j].actif && marge < 0 ? "text-red-700" : "text-emerald-700")}>
-                          {jours[j].actif ? (marge >= 0 ? "✓ +" + marge : "⚠ " + marge) : "—"}
+                        <td className="font-mono font-semibold">
+                          {jours[j].actif ?
+                            <span style={{ display: "inline-block", borderRadius: "6px", padding: "1px 8px", whiteSpace: "nowrap", backgroundColor: marge < 0 ? "#fee2e2" : "#dcfce7", color: marge < 0 ? "#b91c1c" : "#065f46" }}>
+                              {marge >= 0 ? "✓ +" + marge : "⚠ " + marge}
+                            </span> : "—"}
                         </td>
                         <td className="font-mono" title={jours[j].actif && realJour[j].nb ? ("dont " + realJour[j].deux + " match(s) de tableaux « les deux jours » (non comptés dans le besoin fixe) + " + (realJour[j].nb - realJour[j].deux) + " de tableaux fixés au jour") : null}>{jours[j].actif ? <span>{realJour[j].nb}{realJour[j].deux > 0 && <span className="text-emerald-500"> ({realJour[j].deux} deux-jours)</span>}</span> : "—"}</td>
-                        <td className={"font-mono font-semibold " + (jours[j].actif && realJour[j].margeReelle !== null && realJour[j].margeReelle < 0 ? "text-red-700" : "text-emerald-700")}>
-                          {jours[j].actif && realJour[j].margeReelle !== null ? (realJour[j].margeReelle >= 0 ? "✓ +" + realJour[j].margeReelle : "⚠ " + realJour[j].margeReelle) + " min" : "—"}
+                        <td className="font-mono font-semibold">
+                          {jours[j].actif && realJour[j].margeReelle !== null ?
+                            <span style={{ display: "inline-block", borderRadius: "6px", padding: "1px 8px", whiteSpace: "nowrap", backgroundColor: realJour[j].margeReelle < 0 ? "#fee2e2" : "#dcfce7", color: realJour[j].margeReelle < 0 ? "#b91c1c" : "#065f46" }}>
+                              {(realJour[j].margeReelle >= 0 ? "✓ +" + realJour[j].margeReelle : "⚠ " + realJour[j].margeReelle) + " min"}
+                            </span> : "—"}
                         </td>
                       </tr>
                     );
@@ -1141,7 +1276,7 @@ function App() {
         </div>
         <button className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-50" onClick={ajoutTab}>＋ Ajouter un tableau</button>
 
-        <button className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white shadow hover:bg-emerald-700" onClick={() => { setPhase("tournoi"); setVueTab("synthese"); }}>
+        <button className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white shadow hover:bg-emerald-700" onClick={() => { saveCfg(CFG_AUTO); setPhase("tournoi"); setVueTab("synthese"); }}>
           Générer l'échéancier 🏸
         </button>
       </div>
@@ -1202,8 +1337,10 @@ function App() {
   };
 
   return (
-    <div className={"mx-auto max-w-6xl space-y-4 p-4" + (theme === "bad18" ? " theme-bad18" : "")}>
+    <div className={"mx-auto max-w-6xl space-y-4 p-4" + (theme === "bad18" ? " theme-bad18" : theme === "dark" ? " theme-dark" : "")}>
       <style>{THEME_BAD18_CSS}</style>
+      <style>{THEME_DARK_CSS}</style>
+      <style>{ATT_CSS}</style>
       <style>{PRINT_CSS}</style>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-emerald-900">🏸 Échéancier du week-end</h1>
@@ -1359,7 +1496,7 @@ function App() {
                         <td className="text-xs font-mono">{joursAbbr} · {fmtTime(prem)} → {fmtTime(dern)}</td>
                         <td className="text-xs font-mono">
                           <span className="capitalize">{dernM.day}</span> {fmtTime(dernM.end)}
-                          {dep > 0 && <span className="ml-1 font-semibold text-red-600" title="fin estimée au-delà de l'horaire officiel du jour">⚠️ +{dep} min</span>}
+                          {dep > 0 && <span className="ml-1 font-semibold" style={{ display: "inline-block", borderRadius: "6px", padding: "1px 8px", whiteSpace: "nowrap", backgroundColor: "#fee2e2", color: "#b91c1c" }} title="fin estimée au-delà de l'horaire officiel du jour">⚠️ +{dep} min</span>}
                         </td>
                         <td><AttBadge att={st.max} /></td>
                       </tr>
@@ -1380,7 +1517,7 @@ function App() {
                   <h4 className="font-semibold capitalize text-emerald-900">{s.day}</h4>
                   <p className="text-sm text-emerald-700">
                     {s.nb} matchs · {fmtTime(s.debut)} → {s.nb ? fmtTime(s.derniereFin) : "—"}
-                    {s.depasse && <span className="font-semibold text-red-600"> ⚠️ horaire de fin modifié : +{-s.marge} min</span>}
+                    {s.depasse && <span className="font-semibold" style={{ display: "inline-block", borderRadius: "6px", padding: "1px 8px", whiteSpace: "nowrap", backgroundColor: "#fee2e2", color: "#b91c1c" }}> ⚠️ horaire de fin modifié : +{-s.marge} min</span>}
                   </p>
                   <p className="text-xs text-emerald-500">attente max {s.attMax} min · moyenne {s.attMoy} min</p>
                 </div>

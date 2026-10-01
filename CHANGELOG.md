@@ -152,19 +152,60 @@ tienne sur une ligne et non deux ? »
    `.badge`) — aucun changement moteur ni de données, métriques
    inchangées.
 
-## Feuille de route proposée (2026-10-01) — non implémentée
+## 2026-10-01 — Configurations enregistrées, thème dark, palette invariante (v1.5)
+
+Demandes du juge-arbitre (feuille de route, lot 6 — `EVOLUTIONS.md`) :
+sauvegarder une configuration de départ pour y revenir ensuite ; un
+thème d'affichage « dark » ; pour chaque thème, les couleurs liées aux
+attentes estimées ou aux marges réelles identiques au mode classique.
+
+1. **Configurations enregistrées** : nouvelle carte « 💾
+   Configurations enregistrées » à l'écran de configuration — nommez et
+   enregistrez la configuration courante (jours, tableaux, durées et
+   marges, options, thème), rechargez-la plus tard ou supprimez-la.
+   **Export/Import `.json`** pour archiver ou transférer une
+   configuration entre appareils. **« Dernière (auto) »** : sauvegarde
+   automatique écrasée à chaque génération de l'échéancier — on peut
+   toujours revenir à la configuration qui a produit l'échéancier.
+   Stockage sur l'appareil (localStorage) avec repli mémoire : aucune
+   donnée ne quitte l'appareil. Disponible dans les trois versions
+   (React, web, hors-ligne).
+2. **Thème « Dark (sombre) »** : troisième entrée du sélecteur de
+   thème (Classique / Bad18 / Dark) — fond bleu nuit, textes et
+   accents clairs, lisible de nuit ou en salle sombre, sans changement
+   moteur ni de données.
+3. **Palette sémantique invariante** : les couleurs des attentes
+   (tranches vert → rouge) et des marges réelles (✓ vert / ⚠ rouge)
+   sont désormais **strictement identiques dans tous les thèmes**.
+   Correctif inclus : le thème Bad18 recolorait encore les badges
+   d'attente (les seuils verts devenaient rouges par héritage de
+   palette) — les attentes utilisent maintenant des classes dédiées
+   `attb-1..5` (React/web) et les marges de l'estimation comme les
+   avertissements « ⚠️ horaire de fin modifié » deviennent des
+   pastilles à couleurs fixes, insensibles au thème. Seul l'habillage
+   (fonds, bordures, textes) change avec le thème.
+4. **Nouveau test** `tests/presets-test.js` : 21 contrôles
+   (enregistrement/chargement/suppression, auto-save, export/import
+   JSON, thème dark, invariance des couleurs).
+
+Aucun changement moteur ni de données : métriques inchangées
+(att60=83, attMax=112, attMoy=54 ; 350 matchs).
+
+## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :
 
-- **v1.5** — Sauvegarde de configurations nommées (retour à une
-  configuration de départ) + export/import `.json` ; thème d'affichage
-  « dark » ; palette **sémantique invariante** (couleurs d'attentes
-  estimées et de marges réelles identiques dans tous les thèmes).
-- **v2.0** — Profils utilisateurs avec mot de passe local : admin
-  (voit et modifie tout), organisateur (périmètre restreint) ; lien
-  public en lecture seule (déroulé des journées) par export d'une page
-  autonome. Architecture sans serveur recommandée d'abord ; backend
+- **v1.5 — livrée ci-dessus** — configurations nommées + export/import
+  `.json` + auto-save « Dernière (auto) » ; thème « dark » ; palette
+  **sémantique invariante** (couleurs d'attentes et de marges réelles
+  identiques dans tous les thèmes).
+- **v2.0 — différé (décision du juge-arbitre : « voir à l'usage »)** —
+  profils utilisateurs avec mot de passe local : admin (voit et modifie
+  tout), organisateur (périmètre restreint) ; lien public en lecture
+  seule (déroulé des journées) par export d'une page autonome.
+  Architecture sans serveur recommandée d'abord ; backend
   multi-appareils seulement si besoin d'édition simultanée confirmé.
 
-Tickets GitHub ouverts : #9 (presets), #10 (comptes/profils + lien
-public), #11 (thème dark), #12 (couleurs invariantes par thème).
+Ticket GitHub ouvert : #10 (comptes/profils + lien public, différé).
+Tickets fermés : #9 (presets), #11 (thème dark), #12 (couleurs
+invariantes par thème) — résolus par la v1.5.

@@ -171,9 +171,9 @@ attente) et la manière dont elle a été résolue.
 
 ---
 
-## 2026-10-01 — Lot 6 : comptes, presets, thème dark — ⏳ feuille de route proposée (non implémentée)
+## 2026-10-01 — Lot 6 : comptes, presets, thème dark
 
-### 1. Sauvegarder une configuration de départ pour y revenir — ⏳ proposé (v1.5)
+### 1. Sauvegarder une configuration de départ pour y revenir — ✅ implémenté (v1.5)
 
 - **Demande** : « la possibilité de sauvegarder une configuration de
   départ pour y revenir ensuite ».
@@ -187,7 +187,7 @@ attente) et la manière dont elle a été résolue.
   qualifiés), paramètres communs (durée, marge, combinaisons toxiques,
   thème).
 
-### 2. Comptes utilisateurs (login + mot de passe) avec profils — ⏳ proposé (v2.0, décision d'architecture requise)
+### 2. Comptes utilisateurs (login + mot de passe) avec profils — ⏳ différé (v2.0), décision du juge-arbitre : « voir à l'usage »
 
 - **Demande** : « créer des comptes utilisateurs avec des profils
   dédiés : admin (peut tout voir et tout modifier), organisateur (ne
@@ -213,14 +213,14 @@ attente) et la manière dont elle a été résolue.
 - **Proposition** : v2.0 = option A ; option B différée jusqu'à besoin
   réel démontré d'édition simultanée.
 
-### 3. Thème d'affichage « dark » — ⏳ proposé (v1.5)
+### 3. Thème d'affichage « dark » — ✅ implémenté (v1.5)
 
 - **Demande** : « un thème d'affichage "dark" ».
 - **Proposition** : palette sombre pilotée par les variables CSS (la
   version hors-ligne les utilise déjà ; React/web aligné), intégrée au
   sélecteur de thème existant (classique / Bad18 / dark).
 
-### 4. Couleurs d'attentes et de marges identiques dans tous les thèmes — ⏳ proposé (v1.5)
+### 4. Couleurs d'attentes et de marges identiques dans tous les thèmes — ✅ implémenté (v1.5)
 
 - **Demande** : « pour chaque thème, les couleurs liées aux attentes
   estimées ou aux marges réelles doivent être les mêmes que dans le
@@ -233,10 +233,11 @@ attente) et la manière dont elle a été résolue.
 
 ### Phasage proposé
 
-- **v1.5** (100 % côté client, compatible hors-ligne) : presets de
-  configuration + thème dark + palette sémantique invariante.
+- **v1.5 — ✅ livrée (2026-10-01)** : presets de configuration + thème
+  dark + palette sémantique invariante (ticket #10 excepté).
 - **v2.0** : profils locaux (mot de passe local + périmètres) + page
-  publique lecture seule par export.
+  publique lecture seule par export — différé, décision du juge-arbitre
+  (« voir à l'usage »).
 - **v2.1+** (conditionnel) : backend multi-appareils si le besoin
   d'édition simultanée est confirmé.
 
@@ -247,6 +248,7 @@ attente) et la manière dont elle a été résolue.
 Chaque évolution suit le même circuit : demande consignée → implémentation
 dans les trois versions (app React, web, hors-ligne) → régénération web
 (`tests/regen-web.sh`) → suite complète de tests (`tests/`) → CHANGELOG →
-commit descriptif → push. Les métriques de référence (base 350 matchs :
+commit descriptif → push. La suite compte 11 fichiers de test (dont
+`presets-test.js` depuis la v1.5). Les métriques de référence (base 350 matchs :
 att60 = 83, max 112, moy 54 ; finalesFin 93/124/57 ; poules→demis ≤ 150 min)
 servent de garde-fous de régression.
