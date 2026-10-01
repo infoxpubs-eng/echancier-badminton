@@ -580,6 +580,88 @@ function cutsDeuxJours(built, jours, duree) {
    chevauche) ; le 7e argument (facultatif) liste les matchs « W.O. »
    (forfaits) : ils ne consomment pas de terrain et libèrent les
    matchs qui en dépendent — la journée est replanifiée sans eux. */
+/* ---------- statistiques du tournoi (vue « Statistiques ») ----------
+   Agrégats de restitution accessibles par bouton : inscrits (positions
+   de jeu H/F — estimation : sans noms, un même joueur/paire peut
+   figurer dans plusieurs tableaux), paires, matchs prévus (poules /
+   tableau final, exempts, W.O.), durées moyennes et temps de jeu,
+   occupation des terrains, marges réelles, temps d'attente (tous
+   matchs et joueurs de poules) et distribution par tranches. */
+function computeStats(tabs, jours, plan) {
+  const dOf = (m) => (m.duree !== undefined ? m.duree : 28);
+  /* positions de jeu par discipline : un joueur en simple = 1 position,
+     une paire en double = 2 ; mixte et double intergenre = 1 H + 1 F par
+     paire ; simple intergenre réparti moitié-moitié */
+  const GEN = {
+    SM: { h: 1, f: 0, paire: 0 }, SD: { h: 0, f: 1, paire: 0 }, SI: { h: 0.5, f: 0.5, paire: 0 },
+    DM: { h: 2, f: 0, paire: 1 }, DD: { h: 0, f: 2, paire: 1 },
+    DX: { h: 1, f: 1, paire: 1 }, DI: { h: 1, f: 1, paire: 1 },
+  };
+  let posH = 0, posF = 0, paires = 0, inscritsTot = 0;
+  const parDisc = [];
+  const discIdx = {};
+  plan.built.forEach((b) => {
+    const g = GEN[b.tab.disc] || GEN.SI;
+    const n = b.n;
+    posH += g.h * n; posF += g.f * n; paires += g.paire * n;
+    inscritsTot += (g.paire ? 2 : 1) * n;
+    let rec = discIdx[b.tab.disc];
+    if (!rec) {
+      rec = { key: b.tab.disc, label: ((DISCIPLINES.find((d) => d.key === b.tab.disc) || {}).label) || b.tab.disc, tableaux: 0, inscrits: 0, matchs: 0 };
+      discIdx[b.tab.disc] = rec; parDisc.push(rec);
+    }
+    rec.tableaux++; rec.inscrits += (g.paire ? 2 : 1) * n;
+    rec.matchs += b.poolMs.length + b.playedFinals.length;
+  });
+  /* matchs : poules / tableau final, exempts (1ᵉʳ tour de bracket non
+     joué), W.O. ; par jour : durée moyenne, temps de jeu, occupation
+     des terrains, fin réelle et marge réelle */
+  let poules = 0, finales = 0, exempts = 0;
+  plan.built.forEach((b) => {
+    (b.finals || []).forEach((m) => { if (m.round === 0 && m.bye) exempts++; });
+  });
+  plan.sched.forEach((m) => { if (m.phase === "poule") poules++; else finales++; });
+  const parJour = plan.days.map((day) => {
+    const ms = plan.perDay[day] || [];
+    const j = jours[day] || {};
+    const nb = ms.length;
+    const dj = nb ? Math.round(ms.reduce((a, m) => a + dOf(m), 0) / nb) : 0;
+    const jeu = nb * dj;
+    const debut = nb ? Math.min.apply(null, ms.map((m) => m.time)) : null;
+    const finReelle = nb ? Math.max.apply(null, ms.map((m) => m.time + dOf(m))) : null;
+    const terr = Math.max(1, Math.floor(+j.terrains) || 1);
+    const debJ = toMin(j.debut, 9 * 60), finJ = toMin(j.fin, 18 * 60);
+    const dispo = terr * Math.max(1, finJ - debJ);
+    return {
+      jour: day, nb, duree: dj, jeu, debut, finReelle, fermeture: finJ,
+      margeReelle: finReelle === null ? null : finJ - finReelle,
+      occupation: dispo > 0 && jeu > 0 ? Math.round(100 * jeu / dispo) : 0,
+    };
+  });
+  /* attentes : tous matchs mesurables (badges) et joueurs/paires de
+     poules entre leurs propres matchs ; distribution par tranches */
+  const wb = plan.sched.map((m) => m.att).filter((w) => w !== null && w !== undefined);
+  const wp = plan.attentes.map((a) => a.w);
+  const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0);
+  const mx = (arr) => (arr.length ? Math.max.apply(null, arr) : 0);
+  const tranches = [
+    { lbl: "0–20 min", n: wb.filter((w) => w < 20).length },
+    { lbl: "20–40 min", n: wb.filter((w) => w >= 20 && w < 40).length },
+    { lbl: "40–60 min", n: wb.filter((w) => w >= 40 && w < 60).length },
+    { lbl: "60–90 min", n: wb.filter((w) => w >= 60 && w < 90).length },
+    { lbl: "≥ 90 min", n: wb.filter((w) => w >= 90).length },
+  ];
+  return {
+    inscrits: { H: posH, F: posF, total: inscritsTot, paires, parDisc },
+    matchs: { total: plan.sched.length, poules, finales, wo: plan.forfaits.length, exempts, parJour },
+    attentes: {
+      tous: { n: wb.length, max: mx(wb), moy: avg(wb), att60: wb.filter((w) => w >= 60).length, att90: wb.filter((w) => w >= 90).length },
+      poules: { n: wp.length, max: mx(wp), moy: avg(wp), att60: wp.filter((w) => w >= 60).length },
+      tranches,
+    },
+  };
+}
+
 function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, forfaits, cadenceBrut) {
   // durée planifiée = durée moyenne + marge de sécurité : la marge absorbe
   // les dépassements réels pour que le repos de 20 min reste garanti
@@ -1170,11 +1252,13 @@ function renderTournoi() {
   const total = plan.sched.length;
   const att60 = plan.sched.filter((m) => m.att !== null && m.att >= 60).length;
   const attMaxAll = plan.sched.filter((m) => m.att !== null).reduce((s, m) => Math.max(s, m.att), 0);
-  const labels = { synthese: "📊 Synthèse", planning: "🗓️ Planning", classement: "🏷️ Par classement" };
+  const labels = { synthese: "📊 Synthèse", planning: "🗓️ Planning", classement: "🏷️ Par classement", stats: "📈 Statistiques" };
   const tabsBtns = [["synthese", labels.synthese], ["planning", labels.planning], ["classement", labels.classement]]
-    .concat(plan.built.map((b) => ["t" + b.tid, b.label]));
+    .concat(plan.built.map((b) => ["t" + b.tid, b.label]))
+    .concat([["stats", labels.stats]]);
   let body = "";
   if (state.vueTab === "synthese") body = viewSynthese(plan, statsJour);
+  else if (state.vueTab === "stats") body = viewStats(plan, computeStats(state.tabs, state.jours, plan));
   else if (state.vueTab === "classement") body = viewClassement(plan);
   else if (/^t[0-9]+$/.test(state.vueTab) && plan.built[+state.vueTab.slice(1)]) body = viewTab(plan, +state.vueTab.slice(1));
   else body = viewPlanning(plan);
@@ -1299,6 +1383,58 @@ function viewSynthese(plan, statsJour) {
     '<div style="overflow-x:auto"><table><thead><tr><th>Tableau</th><th>Inscrits</th><th>Poules</th><th>Sortants</th><th>Parcours</th><th>Matchs</th><th>Horaire</th><th>Fin estimée</th><th>Attente max</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
     "<p style=\"font-size:.72rem;color:var(--em);margin:8px 0 0\">Parcours : « (J2) » marque le tour où le tableau reprend le dimanche. Les poules sont composées automatiquement pour minimiser les matchs ; au-delà de 24 inscrits, élimination directe. Alternative par tableau : la ronde suisse (personne n'est éliminé, chaque inscrit joue une fois par ronde, classement final aux victoires).</p></div>" +
     '<div class="grid2">' + dayCards + "</div>";
+}
+
+/* vue « Statistiques » : tableau de bord de restitution des indicateurs
+   principaux (joueurs/paires estimés, matchs prévus, attentes) */
+function viewStats(plan, st) {
+  const tile = (v, l, sub) =>
+    '<div class="stat" style="text-align:center"><b>' + v + "</b><span>" + l + "</span>" + (sub ? "<i>" + sub + "</i>" : "") + "</div>";
+  const tmax = Math.max.apply(null, [1].concat(st.attentes.tranches.map((t) => t.n)));
+  const discRows = st.inscrits.parDisc.map((d) =>
+    "<tr><td>" + esc(d.label) + "</td><td class='mono'>" + d.tableaux + "</td><td class='mono'>" + d.inscrits + "</td><td class='mono'>" + d.matchs + "</td></tr>"
+  ).join("");
+  const jourRows = st.matchs.parJour.map((j) => {
+    const h = Math.floor(j.jeu / 60), mn = j.jeu % 60;
+    return "<tr><td style='text-transform:capitalize'>" + esc(j.jour) + "</td><td class='mono'>" + j.nb +
+      "</td><td class='mono'>" + j.duree + " min</td><td class='mono'>" + h + " h " + (mn < 10 ? "0" : "") + mn + " min</td><td class='mono'>" + j.occupation + " %</td><td class='mono'>" +
+      (j.debut === null ? "—" : fmtTime(j.debut) + " → " + fmtTime(j.finReelle)) +
+      "</td><td class='mono'>" + (j.margeReelle === null ? "—" : (j.margeReelle >= 0 ? "+" : "") + j.margeReelle + " min") + "</td></tr>";
+  }).join("");
+  const bars = st.attentes.tranches.map((t) =>
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+      '<span style="width:82px;font-size:.72rem;color:var(--em)">' + esc(t.lbl) + "</span>" +
+      '<div style="flex:1;height:12px;border-radius:6px;background:#ecfdf5;overflow:hidden"><div style="height:12px;border-radius:6px;background:#10b981;width:' + Math.round(100 * t.n / tmax) + '%"></div></div>' +
+      '<span style="width:36px;text-align:right;font-size:.72rem;color:var(--em)">' + t.n + "</span></div>"
+  ).join("");
+  return '<div class="card" style="margin-bottom:14px"><h3>👥 Joueurs et paires — estimation</h3>' +
+    '<div class="stats">' +
+      tile(Math.round(st.inscrits.H), "positions de jeu hommes (H)") +
+      tile(Math.round(st.inscrits.F), "positions de jeu femmes (F)") +
+      tile(st.inscrits.paires, "paires engagées (doubles + mixte)") +
+      tile(st.inscrits.total, "inscrits au total, toutes disciplines") +
+    "</div>" +
+    '<p style="font-size:.72rem;color:var(--em);margin:8px 0 0">Estimation : sans noms, un même joueur (ou une même paire) inscrit dans plusieurs disciplines ou sur les deux jours compte dans chacune. Une paire = 2 positions de jeu (mixte et intergenre : 1 H + 1 F).</p>' +
+    '<div style="overflow-x:auto"><table><thead><tr><th>Discipline</th><th>Tableaux</th><th>Inscrits</th><th>Matchs</th></tr></thead><tbody>' + discRows + "</tbody></table></div></div>" +
+    '<div class="card" style="margin-bottom:14px"><h3>🏸 Matchs prévus</h3>' +
+    '<div class="stats">' +
+      tile(st.matchs.total, "matchs planifiés") +
+      tile(st.matchs.poules, "matchs de poule") +
+      tile(st.matchs.finales, "matchs de tableau final") +
+      tile(st.matchs.exempts, "exempts (1ᵉʳ tour)") +
+      tile(st.matchs.wo, "W.O. (non joués)") +
+    "</div>" +
+    '<div style="overflow-x:auto"><table><thead><tr><th>Jour</th><th>Matchs</th><th>Durée / match</th><th>Temps de jeu</th><th>Occupation terrains</th><th>Début → fin réelle</th><th>Marge réelle</th></tr></thead><tbody>' + jourRows + "</tbody></table></div>" +
+    '<p style="font-size:.72rem;color:var(--em);margin:8px 0 0">Occupation = temps de jeu cumulé ÷ (terrains × amplitude du jour). Marge réelle = fermeture − fin réelle (négative = dépassement de l\'horaire officiel). Durée / match = durée planifiée moyenne du jour.</p></div>' +
+    '<div class="card" style="margin-bottom:14px"><h3>⏱️ Temps d\'attente (repos de ' + REPOS + " min inclus)</h3>" +
+    '<div class="stats">' +
+      tile(st.attentes.tous.max + " min", "attente max (tous matchs)", st.attentes.tous.n + " matchs mesurables") +
+      tile(st.attentes.tous.moy + " min", "attente moyenne (tous matchs)") +
+      tile(st.attentes.tous.att60, "attentes ≥ 1 h") +
+      tile(st.attentes.tous.att90, "attentes ≥ 1 h 30") +
+    "</div>" +
+    '<p style="font-size:.72rem;color:var(--em);margin:8px 0 0">Joueurs / paires de poules, entre leurs propres matchs : max ' + st.attentes.poules.max + " min · moyenne " + st.attentes.poules.moy + " min · " + st.attentes.poules.att60 + " attentes ≥ 1 h (" + st.attentes.poules.n + " mesurées).</p>" +
+    '<div style="font-size:.75rem;font-weight:700;color:var(--em-d);margin:10px 0 4px">Distribution des attentes (tous matchs)</div>' + bars + "</div>";
 }
 
 function viewClassement(plan) {

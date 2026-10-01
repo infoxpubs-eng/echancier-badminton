@@ -360,6 +360,36 @@ sur les suites : tickets #17 (clôt) et #18.
 Aucun changement de planification par défaut : métriques de référence
 inchangées (att60=75, attMax=112, attMoy=51 ; 350 matchs).
 
+## 2026-10-01 — Vue « Statistiques » : tableau de bord de restitution (v1.9)
+
+Demande du juge-arbitre : un tableau de bord des statistiques
+principales du tournoi, accessible par un bouton. Ajout d'une vue
+**« 📈 Statistiques »** (dernier onglet, après les tableaux) dans les
+trois versions, calculée par une nouvelle fonction `computeStats`
+(agrégats pures du plan, sans effet sur la planification) :
+
+1. **Joueurs et paires — estimation** : positions de jeu hommes / femmes,
+   paires engagées (doubles + mixte), inscrits total, et répartition par
+   discipline (tableaux, inscrits, matchs). Sans noms réels, un même
+   joueur/paire inscrit dans plusieurs disciplines compte dans chacune ;
+   simple intergenre réparti moitié-moitié, mixte et intergenre = 1 H +
+   1 F par paire.
+2. **Matchs prévus** : total, poules, tableau final, exempts, W.O. ; par
+   jour : nombre, durée moyenne, temps de jeu, occupation des terrains
+   (temps de jeu ÷ terrains × amplitude), début → fin réelle et marge
+   réelle (fermeture − fin).
+3. **Temps d'attente** : max, moyenne, attentes ≥ 1 h et ≥ 1 h 30 (tous
+   matchs), ligne dédiée aux joueurs/paires de poules entre leurs
+   propres matchs, et distribution par tranches (0-20 / 20-40 / 40-60 /
+   60-90 / ≥ 90 min).
+
+Nouveau test `tests/stats-test.js` (15ᵉ fichier) : agrégats attendus
+sur le scénario ITB7 (234 H / 127 F / 133 paires / 361 inscrits ;
+308 matchs dont 247 poules, 10 exempts ; occupation 93 % / 78 % ;
+attentes max 136, 89 ≥ 1 h) et sanity sur la configuration de base.
+
+Aucun changement de planification : métriques de référence inchangées.
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :

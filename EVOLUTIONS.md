@@ -378,15 +378,46 @@ de 20 min.
 
 ---
 
+## 2026-10-01 — Lot 12 : vue « Statistiques » — tableau de bord de restitution (v1.9)
+
+Demande du juge-arbitre (hors liste A-M initiale, ticket #18) : créer un
+tableau de bord des statistiques principales, accessible par un bouton —
+nombre de joueurs (H/F) estimés, paires, matchs prévus, durées moyennes,
+temps d'attente, et tout indicateur utile.
+
+- **Implémentation** : fonction `computeStats(tabs, jours, plan)`
+  (agrégats purs du plan, insérée avant `computePlan` dans le moteur des
+  trois versions) + vue « 📈 Statistiques » en dernier onglet.
+  Indicateurs : (1) joueurs et paires estimés — positions de jeu H/F
+  par discipline (simple intergenre 50/50, mixte et intergenre 1 H + 1 F
+  par paire), paires, inscrits total, répartition par discipline ;
+  (2) matchs prévus — total/poules/tableau final/exempts/W.O., par jour
+  durée moyenne, temps de jeu, occupation des terrains, début → fin
+  réelle et marge réelle ; (3) temps d'attente — max/moyenne/att60/att90
+  tous matchs, joueurs de poules entre leurs propres matchs,
+  distribution par tranches (0-20 à ≥ 90 min).
+- **Estimation documentée** : sans noms réels (joueurs anonymes), un
+  même joueur ou paire inscrit dans plusieurs disciplines ou sur les
+  deux jours compte dans chacune ; l'estimation sera affinée par E
+  (import des inscriptions).
+- **Test** : `tests/stats-test.js` (15ᵉ fichier) — agrégats attendus
+  sur ITB7 (234 H / 127 F / 133 paires / 361 inscrits, 308 matchs
+  dont 247 poules / 61 finales / 10 exempts, temps de jeu 6 358 +
+  4 114 min, occupation 93 % / 78 %, fins 22:41 +19 / 18:34 +56,
+  attentes max 136, 89 ≥ 1 h, moyennes 65 / 55) + sanity baseTabs
+  (pas de NaN, sommes cohérentes, occupations 0-100 %).
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation
 dans les trois versions (app React, web, hors-ligne) → régénération web
 (`tests/regen-web.sh`) → suite complète de tests (`tests/`) → CHANGELOG →
-commit descriptif → push. La suite compte 14 fichiers de test (dont
+commit descriptif → push. La suite compte 15 fichiers de test (dont
 `presets-test.js` depuis la v1.5, `byes-test.js` depuis la v1.5.1 —
 étendu en v1.6 pour l'ordre strict des tours —, `ordre-jours-test.js`
-depuis la v1.7 et `itb7-test.js` depuis la v1.8). Les métriques de
-référence depuis
+depuis la v1.7, `itb7-test.js` depuis la v1.8 et `stats-test.js` depuis
+la v1.9). Les métriques de référence depuis
 la v1.6 (base 350 matchs : att60 = 75, max 112, moy 51 ; finalesFin
 77/112/52 ; poules→demis ≤ 150 min) servent de garde-fous de régression.

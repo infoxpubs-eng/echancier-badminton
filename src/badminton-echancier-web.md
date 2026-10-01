@@ -448,6 +448,88 @@ const cfgStore = {
    chevauche) ; le 7e argument (facultatif) liste les matchs « W.O. »
    (forfaits) : ils ne consomment pas de terrain et libèrent les
    matchs qui en dépendent — la journée est replanifiée sans eux. */
+/* ---------- statistiques du tournoi (vue « Statistiques ») ----------
+   Agrégats de restitution accessibles par bouton : inscrits (positions
+   de jeu H/F — estimation : sans noms, un même joueur/paire peut
+   figurer dans plusieurs tableaux), paires, matchs prévus (poules /
+   tableau final, exempts, W.O.), durées moyennes et temps de jeu,
+   occupation des terrains, marges réelles, temps d'attente (tous
+   matchs et joueurs de poules) et distribution par tranches. */
+function computeStats(tabs, jours, plan) {
+  const dOf = (m) => (m.duree !== undefined ? m.duree : 28);
+  /* positions de jeu par discipline : un joueur en simple = 1 position,
+     une paire en double = 2 ; mixte et double intergenre = 1 H + 1 F par
+     paire ; simple intergenre réparti moitié-moitié */
+  const GEN = {
+    SM: { h: 1, f: 0, paire: 0 }, SD: { h: 0, f: 1, paire: 0 }, SI: { h: 0.5, f: 0.5, paire: 0 },
+    DM: { h: 2, f: 0, paire: 1 }, DD: { h: 0, f: 2, paire: 1 },
+    DX: { h: 1, f: 1, paire: 1 }, DI: { h: 1, f: 1, paire: 1 },
+  };
+  let posH = 0, posF = 0, paires = 0, inscritsTot = 0;
+  const parDisc = [];
+  const discIdx = {};
+  plan.built.forEach((b) => {
+    const g = GEN[b.tab.disc] || GEN.SI;
+    const n = b.n;
+    posH += g.h * n; posF += g.f * n; paires += g.paire * n;
+    inscritsTot += (g.paire ? 2 : 1) * n;
+    let rec = discIdx[b.tab.disc];
+    if (!rec) {
+      rec = { key: b.tab.disc, label: ((DISCIPLINES.find((d) => d.key === b.tab.disc) || {}).label) || b.tab.disc, tableaux: 0, inscrits: 0, matchs: 0 };
+      discIdx[b.tab.disc] = rec; parDisc.push(rec);
+    }
+    rec.tableaux++; rec.inscrits += (g.paire ? 2 : 1) * n;
+    rec.matchs += b.poolMs.length + b.playedFinals.length;
+  });
+  /* matchs : poules / tableau final, exempts (1ᵉʳ tour de bracket non
+     joué), W.O. ; par jour : durée moyenne, temps de jeu, occupation
+     des terrains, fin réelle et marge réelle */
+  let poules = 0, finales = 0, exempts = 0;
+  plan.built.forEach((b) => {
+    (b.finals || []).forEach((m) => { if (m.round === 0 && m.bye) exempts++; });
+  });
+  plan.sched.forEach((m) => { if (m.phase === "poule") poules++; else finales++; });
+  const parJour = plan.days.map((day) => {
+    const ms = plan.perDay[day] || [];
+    const j = jours[day] || {};
+    const nb = ms.length;
+    const dj = nb ? Math.round(ms.reduce((a, m) => a + dOf(m), 0) / nb) : 0;
+    const jeu = nb * dj;
+    const debut = nb ? Math.min.apply(null, ms.map((m) => m.time)) : null;
+    const finReelle = nb ? Math.max.apply(null, ms.map((m) => m.time + dOf(m))) : null;
+    const terr = Math.max(1, Math.floor(+j.terrains) || 1);
+    const debJ = toMin(j.debut, 9 * 60), finJ = toMin(j.fin, 18 * 60);
+    const dispo = terr * Math.max(1, finJ - debJ);
+    return {
+      jour: day, nb, duree: dj, jeu, debut, finReelle, fermeture: finJ,
+      margeReelle: finReelle === null ? null : finJ - finReelle,
+      occupation: dispo > 0 && jeu > 0 ? Math.round(100 * jeu / dispo) : 0,
+    };
+  });
+  /* attentes : tous matchs mesurables (badges) et joueurs/paires de
+     poules entre leurs propres matchs ; distribution par tranches */
+  const wb = plan.sched.map((m) => m.att).filter((w) => w !== null && w !== undefined);
+  const wp = plan.attentes.map((a) => a.w);
+  const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0);
+  const mx = (arr) => (arr.length ? Math.max.apply(null, arr) : 0);
+  const tranches = [
+    { lbl: "0–20 min", n: wb.filter((w) => w < 20).length },
+    { lbl: "20–40 min", n: wb.filter((w) => w >= 20 && w < 40).length },
+    { lbl: "40–60 min", n: wb.filter((w) => w >= 40 && w < 60).length },
+    { lbl: "60–90 min", n: wb.filter((w) => w >= 60 && w < 90).length },
+    { lbl: "≥ 90 min", n: wb.filter((w) => w >= 90).length },
+  ];
+  return {
+    inscrits: { H: posH, F: posF, total: inscritsTot, paires, parDisc },
+    matchs: { total: plan.sched.length, poules, finales, wo: plan.forfaits.length, exempts, parJour },
+    attentes: {
+      tous: { n: wb.length, max: mx(wb), moy: avg(wb), att60: wb.filter((w) => w >= 60).length, att90: wb.filter((w) => w >= 90).length },
+      poules: { n: wp.length, max: mx(wp), moy: avg(wp), att60: wp.filter((w) => w >= 60).length },
+      tranches,
+    },
+  };
+}
+
 function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, forfaits, cadenceBrut) {
   // durée planifiée = durée moyenne + marge de sécurité : la marge absorbe
   // les dépassements réels pour que le repos de 20 min reste garanti
@@ -1396,8 +1478,8 @@ function App() {
   }
 
   /* ---------- écran échéancier ---------- */
-  const jourKeys = ["synthese", "planning", "classement"].concat(plan.built.map((b) => "t" + b.tid));
-  const jourLabels = { synthese: "📊 Synthèse", planning: "🗓️ Planning", classement: "🏷️ Par classement" };
+  const jourKeys = ["synthese", "planning", "classement"].concat(plan.built.map((b) => "t" + b.tid)).concat(["stats"]);
+  const jourLabels = { synthese: "📊 Synthèse", planning: "🗓️ Planning", classement: "🏷️ Par classement", stats: "📈 Statistiques" };
   /* durée effective d'un match : celle du jour de sa planification (le
      jour peut surcharger durée/marge), sinon la valeur commune */
   const mduree = (m) => (m.duree !== undefined ? m.duree : dureeCalc(dureeMatch, marge));
@@ -1634,6 +1716,117 @@ function App() {
                   <p className="text-xs text-emerald-500">attente max {s.attMax} min · moyenne {s.attMoy} min</p>
                 </div>
               ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* vue « Statistiques » : tableau de bord de restitution des
+          indicateurs principaux (accessible par bouton) */}
+      {vueTab === "stats" && (() => {
+        const st = computeStats(tabs, jours, plan);
+        const tmax = Math.max(1, ...st.attentes.tranches.map((t) => t.n));
+        const tile = (v, l, sub) => (
+          <div className="rounded-xl border border-emerald-100 bg-white p-3 text-center shadow-sm">
+            <div className="text-lg font-bold text-emerald-900">{v}</div>
+            <div className="text-xs text-emerald-600">{l}</div>
+            {sub ? <div className="mt-1 text-[11px] text-emerald-500">{sub}</div> : null}
+          </div>
+        );
+        return (
+          <div className="space-y-5">
+            <div className={cardCls}>
+              <h3 className="mb-3 font-semibold text-emerald-900">👥 Joueurs et paires — estimation</h3>
+              <div className="grid gap-3 sm:grid-cols-4">
+                {tile(Math.round(st.inscrits.H), "positions de jeu hommes (H)")}
+                {tile(Math.round(st.inscrits.F), "positions de jeu femmes (F)")}
+                {tile(st.inscrits.paires, "paires engagées (doubles + mixte)")}
+                {tile(st.inscrits.total, "inscrits au total, toutes disciplines")}
+              </div>
+              <p className="mt-2 text-xs text-emerald-600">
+                Estimation : sans noms, un même joueur (ou une même paire) inscrit dans plusieurs disciplines ou sur les
+                deux jours compte dans chacune. Une paire = 2 positions de jeu (mixte et intergenre : 1 H + 1 F).
+              </p>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs uppercase text-emerald-600">
+                      <th className="py-1 pr-4">Discipline</th><th className="py-1 pr-4">Tableaux</th><th className="py-1 pr-4">Inscrits</th><th className="py-1 pr-4">Matchs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {st.inscrits.parDisc.map((d) => (
+                      <tr key={d.key} className="border-b border-emerald-50">
+                        <td className="py-1 pr-4">{d.label}</td><td className="py-1 pr-4">{d.tableaux}</td>
+                        <td className="py-1 pr-4">{d.inscrits}</td><td className="py-1 pr-4">{d.matchs}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className={cardCls}>
+              <h3 className="mb-3 font-semibold text-emerald-900">🏸 Matchs prévus</h3>
+              <div className="grid gap-3 sm:grid-cols-5">
+                {tile(st.matchs.total, "matchs planifiés")}
+                {tile(st.matchs.poules, "matchs de poule")}
+                {tile(st.matchs.finales, "matchs de tableau final")}
+                {tile(st.matchs.exempts, "exempts (1ᵉʳ tour)")}
+                {tile(st.matchs.wo, "W.O. (non joués)")}
+              </div>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs uppercase text-emerald-600">
+                      <th className="py-1 pr-4">Jour</th><th className="py-1 pr-4">Matchs</th><th className="py-1 pr-4">Durée / match</th>
+                      <th className="py-1 pr-4">Temps de jeu</th><th className="py-1 pr-4">Occupation terrains</th>
+                      <th className="py-1 pr-4">Début → fin réelle</th><th className="py-1 pr-4">Marge réelle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {st.matchs.parJour.map((j) => (
+                      <tr key={j.jour} className="border-b border-emerald-50">
+                        <td className="py-1 pr-4 capitalize">{j.jour}</td>
+                        <td className="py-1 pr-4">{j.nb}</td>
+                        <td className="py-1 pr-4">{j.duree} min</td>
+                        <td className="py-1 pr-4">{Math.floor(j.jeu / 60)} h {String(j.jeu % 60).padStart(2, "0")} min</td>
+                        <td className="py-1 pr-4">{j.occupation} %</td>
+                        <td className="py-1 pr-4">{j.debut === null ? "—" : fmtTime(j.debut) + " → " + fmtTime(j.finReelle)}</td>
+                        <td className="py-1 pr-4">{j.margeReelle === null ? "—" : (j.margeReelle >= 0 ? "+" : "") + j.margeReelle + " min"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-xs text-emerald-600">
+                Occupation = temps de jeu cumulé ÷ (terrains × amplitude du jour). Marge réelle = fermeture − fin réelle
+                (négative = dépassement de l'horaire officiel). Durée / match = durée planifiée moyenne du jour.
+              </p>
+            </div>
+            <div className={cardCls}>
+              <h3 className="mb-3 font-semibold text-emerald-900">⏱️ Temps d'attente (repos de {REPOS} min inclus)</h3>
+              <div className="grid gap-3 sm:grid-cols-4">
+                {tile(st.attentes.tous.max + " min", "attente max (tous matchs)", st.attentes.tous.n + " matchs mesurables")}
+                {tile(st.attentes.tous.moy + " min", "attente moyenne (tous matchs)")}
+                {tile(st.attentes.tous.att60, "attentes ≥ 1 h")}
+                {tile(st.attentes.tous.att90, "attentes ≥ 1 h 30")}
+              </div>
+              <p className="mt-2 text-xs text-emerald-600">
+                Joueurs / paires de poules, entre leurs propres matchs : max {st.attentes.poules.max} min · moyenne
+                {" "}{st.attentes.poules.moy} min · {st.attentes.poules.att60} attentes ≥ 1 h ({st.attentes.poules.n} mesurées).
+              </p>
+              <div className="mt-3">
+                <div className="mb-1 text-xs font-semibold text-emerald-700">Distribution des attentes (tous matchs)</div>
+                {st.attentes.tranches.map((t) => (
+                  <div key={t.lbl} className="mb-1 flex items-center gap-2">
+                    <span className="w-20 text-xs text-emerald-700">{t.lbl}</span>
+                    <div className="h-3 flex-1 rounded bg-emerald-50">
+                      <div className="h-3 rounded bg-emerald-500" style={{ width: (100 * t.n / tmax) + "%" }} />
+                    </div>
+                    <span className="w-10 text-right text-xs text-emerald-700">{t.n}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         );
