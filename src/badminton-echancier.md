@@ -931,9 +931,10 @@ const ATT_CSS = `
 .attb-4 { background-color: #fed7aa !important; color: #7c2d12 !important; }
 .attb-5 { background-color: #fecaca !important; color: #7f1d1d !important; }
 `;
-/* ---------- thème « dark » : fond bleu nuit, textes clairs — les
-   couleurs d'attentes (attb-*) et de marges (pastilles inline) ne
-   changent PAS avec le thème : elles restent celles du mode classique ---------- */
+/* ---------- thème « dark » : fond bleu nuit — textes de contenu en
+   bleu ciel (au lieu du vert), notes et explications en gris moyen ;
+   bulles d'alerte/notifications et pastilles (attb-*, marges) inchangées :
+   elles gardent leurs couleurs du mode classique ---------- */
 const THEME_DARK_CSS = `
 body:has(.theme-dark) { background-color: #0b1220 !important; }
 .theme-dark { background-color: #0b1220 !important; color: #e2e8f0 !important; }
@@ -947,12 +948,18 @@ body:has(.theme-dark) { background-color: #0b1220 !important; }
 .theme-dark .border-emerald-300 { border-color: #33517a !important; }
 .theme-dark .border-emerald-500,
 .theme-dark .focus\\:border-emerald-500:focus { border-color: #33517a !important; }
-.theme-dark .text-slate-500 { color: #64748b !important; }
+/* gris moyen : notes et explications (textes secondaires) */
+.theme-dark .text-slate-500 { color: #94a3b8 !important; }
 .theme-dark .text-slate-600 { color: #94a3b8 !important; }
-.theme-dark .text-emerald-600 { color: #6ee7b7 !important; }
+.theme-dark .text-emerald-400,
+.theme-dark .text-emerald-500 { color: #94a3b8 !important; }
+/* bleu ciel : texte principal (au lieu du vert) */
+.theme-dark .text-emerald-600 { color: #38bdf8 !important; }
 .theme-dark .text-emerald-700,
-.theme-dark .text-emerald-800 { color: #a7f3d0 !important; }
+.theme-dark .text-emerald-800 { color: #7dd3fc !important; }
 .theme-dark .text-emerald-900 { color: #e2e8f0 !important; }
+/* bulles de notification positives (✅) : le texte reste vert */
+.theme-dark .p-3.text-sm.bg-emerald-50.text-emerald-800 { color: #a7f3d0 !important; }
 .theme-dark .text-amber-600 { color: #fbbf24 !important; }
 .theme-dark .text-red-600,
 .theme-dark .text-red-700 { color: #f87171 !important; }

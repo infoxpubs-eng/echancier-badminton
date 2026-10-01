@@ -395,6 +395,24 @@ mesurées, jours = disciplines = total, occupation bornée 0-100 %).
 Aucun changement de planification ni de métriques de référence :
 15/15 tests verts (suite `suite-v19.sh`).
 
+## 2026-10-01 — Thème dark : bleu ciel + gris moyen (v1.9.1)
+
+Ajustement du thème « Dark » demandé par le juge-arbitre : le texte
+principal passe du vert au **bleu ciel** (#38bdf8 / #7dd3fc web-React,
+variables `--em: #38bdf8` / `--em-d: #bae6fd` hors-ligne), et les
+**notes et explications** passent en **gris moyen** (#94a3b8). Les trois
+versions (web, React, hors-ligne) sont alignées : libellés, en-têtes de
+tableaux, pied de page, onglets actifs et pastilles de terrain suivent
+le bleu ciel ; les petites notes (sous les indicateurs, légendes de
+champs) suivent le gris moyen.
+
+Inchangés, comme demandé : les bulles d'alerte et de notifications
+(warnings rouges/ambres, bulles ✅ vertes), les pastilles d'attente
+(`attb-1..5`, hex inline) et les chips de marge — la palette reste
+invariante entre thèmes (vérifiée par `presets-test`, 21/21). Le
+comportement des boutons primaires en dark est aligné entre versions
+(vert #059669). Aucun changement du mode classique. Suite 15/15 verts.
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :

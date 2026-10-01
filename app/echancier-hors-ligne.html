@@ -88,39 +88,46 @@
   body.theme-bad18 .ok { background: #fef2f2; border-color: #fca5a5; }
   body.theme-bad18 .poolbox { background: #fef2f2; border-color: #fecaca; }
   body.theme-bad18 .stat { border-color: #fecaca; }
-  /* ---------- thème « dark » (bleu nuit, textes clairs) — les couleurs
-     d'attentes (pastilles ATT_STEPS, hex inline) et de marges (chips avec
-     fond) sont IDENTIQUES au mode classique : elles ne changent pas avec
-     le thème ---------- */
-  body.theme-dark { --em: #34d399; --em-l: #1a2c47; --em-d: #a7f3d0; background: linear-gradient(180deg, #0b1220, #101a2c); color: #e2e8f0; }
+  /* ---------- thème « dark » (bleu nuit) — textes de contenu en bleu
+     ciel (au lieu du vert), notes et explications en gris moyen ; bulles
+     d'alerte/notifications (warn/ok) et pastilles d'attentes (ATT_STEPS,
+     hex inline) et de marges (chips avec fond) inchangées : elles gardent
+     leurs couleurs du mode classique ---------- */
+  body.theme-dark { --em: #38bdf8; --em-l: #1a2c47; --em-d: #bae6fd; background: linear-gradient(180deg, #0b1220, #101a2c); color: #e2e8f0; }
   body.theme-dark h1, body.theme-dark h3, body.theme-dark h4 { color: #e2e8f0; }
   body.theme-dark .card { background: #101a2c; border-color: #1f2b40; }
-  body.theme-dark label { color: #6ee7b7; }
+  body.theme-dark label { color: #7dd3fc; }
   body.theme-dark input[type="text"], body.theme-dark input[type="number"],
   body.theme-dark input[type="time"], body.theme-dark textarea, body.theme-dark select {
     background: #0b1220; border-color: #243a55; color: #e2e8f0; }
+  body.theme-dark .btn { background: #059669; color: #ffffff; }
+  body.theme-dark .btn:hover { background: #047857; }
   body.theme-dark .btn-o, body.theme-dark .live-btn { background: #101a2c; border-color: #243a55; }
   body.theme-dark .btn-x, body.theme-dark .wochip { background: #101a2c; }
   body.theme-dark .tabs { background: #101a2c; border-color: #1f2b40; }
-  body.theme-dark .tab { color: #a7f3d0; }
-  body.theme-dark .tab.on { background: #134e4a; color: #d1fae5; }
-  body.theme-dark th { color: #6ee7b7; border-bottom-color: #243a55; }
+  body.theme-dark .tab { color: #bae6fd; }
+  body.theme-dark .tab.on { background: #059669; color: #ffffff; }
+  body.theme-dark th { color: #7dd3fc; border-bottom-color: #243a55; }
   body.theme-dark td { border-bottom-color: #1f2b40; }
-  body.theme-dark .court { background: #134e4a; color: #d1fae5; }
+  body.theme-dark .court { background: #1a2c47; color: #7dd3fc; }
   body.theme-dark .stat { background: #101a2c; border-color: #1f2b40; }
   body.theme-dark .stat b { color: #e2e8f0; }
-  body.theme-dark .stat i { color: #64748b; }
+  body.theme-dark .stat i { color: #94a3b8; }
   body.theme-dark .ok { background: #16233a; border-color: #243a55; color: #a7f3d0; }
   body.theme-dark .warn { background: #1f2937; border-color: #7f1d1d; color: #f87171; }
   body.theme-dark .poolbox { background: #16233a; border-color: #243a55; }
   body.theme-dark .prow td { background: #1f2937; color: #fbbf24; border-bottom-color: #374151; }
-  body.theme-dark .mut { color: #64748b; }
+  body.theme-dark .mut { color: #94a3b8; }
   body.theme-dark .appel { color: #fbbf24; }
-  body.theme-dark footer { color: #6ee7b7; }
+  body.theme-dark footer { color: #7dd3fc; }
   /* textes d'avertissement rouges inline SANS fond : éclaircis pour rester
      lisibles sur fond sombre — les chips de marges (avec fond) gardent
      leurs couleurs du mode classique */
   body.theme-dark [style*="b91c1c"]:not([style*="background"]) { color: #f87171 !important; }
+  /* séparateurs « contre » / « vs » inline (verts en classique) : bleu ciel */
+  body.theme-dark [style*="color:#6ee7b7"]:not([style*="background"]) { color: #7dd3fc !important; }
+  /* petites notes du tableau de bord statistique (vertes en classique) : gris moyen */
+  body.theme-dark [style*="color:#10b981"]:not([style*="background"]) { color: #94a3b8 !important; }
 </style>
 </head>
 <body>
@@ -1284,11 +1291,11 @@ function statsDashboardHtml(plan) {
       "<div class=\"stat\"><b>" + st.jeu.moyenneParEngagement + " min</b><span>durée moyenne de jeu par engagement</span><i>" + st.jeu.totalH + " h de jeu au total · " + st.jeu.matchsParEngagement + " matchs/engagement</i></div>" +
     "</div>" +
     '<div class="grid2">' +
-      "<div><h4>⏱️ Attentes (matchs)</h4><p style=\"margin:4px 0;font-size:.8rem\">moyenne " + attFmt(st.attentes.moy) + " · maximum " + attFmt(st.attentes.max) + " · " + st.attentes.sup60 + " ≥ 1h</p><p style=\"margin:4px 0\">" + paliers + "</p><p style=\"font-size:.75rem;color:var(--em)\">vue joueurs/paires (repos " + REPOS + " min inclus) : moyenne " + attFmt(st.attentesJoueurs.moy) + " · max " + attFmt(st.attentesJoueurs.max) + " · " + st.attentesJoueurs.sup60 + " ≥ 1h</p></div>" +
+      "<div><h4>⏱️ Attentes (matchs)</h4><p style=\"margin:4px 0;font-size:.8rem\">moyenne " + attFmt(st.attentes.moy) + " · maximum " + attFmt(st.attentes.max) + " · " + st.attentes.sup60 + " ≥ 1h</p><p style=\"margin:4px 0\">" + paliers + "</p><p style=\"font-size:.75rem;color:#10b981\">vue joueurs/paires (repos " + REPOS + " min inclus) : moyenne " + attFmt(st.attentesJoueurs.moy) + " · max " + attFmt(st.attentesJoueurs.max) + " · " + st.attentesJoueurs.sup60 + " ≥ 1h</p></div>" +
       "<div><h4>🏸 Matchs par discipline</h4><p style=\"margin:4px 0\">" + disc + "</p></div>" +
     "</div>" +
     '<div style="overflow-x:auto;margin-top:10px"><table><thead><tr><th>Jour</th><th>Matchs</th><th>Poules</th><th>Finales</th><th>Créneau</th><th>Jeu</th><th>Occupation</th><th>Marge fin</th><th>Attente moy</th><th>Attente max</th><th>≥ 1h</th></tr></thead><tbody>' + jours + "</tbody></table></div>" +
-    "<p style=\"font-size:.75rem;color:var(--em);margin:8px 0 0\">Effectifs estimés à partir des engagements par tableau (joueurs anonymes : un même joueur engagé dans plusieurs tableaux est compté plusieurs fois). Les inscriptions réelles seront intégrées avec l'import des noms (suite E).</p>" +
+    "<p style=\"font-size:.75rem;color:#10b981;margin:8px 0 0\">Effectifs estimés à partir des engagements par tableau (joueurs anonymes : un même joueur engagé dans plusieurs tableaux est compté plusieurs fois). Les inscriptions réelles seront intégrées avec l'import des noms (suite E).</p>" +
     "</div>";
 }
 
