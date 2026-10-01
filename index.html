@@ -66,6 +66,19 @@ const DISC_COLORS = {
 };
 
 const JOURS = ["samedi", "dimanche"]; // jours par défaut (d'autres peuvent être ajoutés)
+/* ordre canonique des jours : samedi, puis dimanche, puis les jours
+   supplémentaires (« jour 3 », « jour 4 »…) dans l'ordre. Une
+   configuration enregistrée (ou une saisie dans un autre ordre) ne doit
+   jamais afficher ni numéroter les matchs du dimanche avant ceux du
+   samedi */
+const dayRank = (j) => {
+  const i = JOURS.indexOf(j);
+  if (i !== -1) return i;
+  const m = /^jour (\d+)$/.exec(j);
+  return 900 + (m ? parseInt(m[1], 10) : 800);
+};
+const daySort = (arr) => arr.slice().sort((a, b) => dayRank(a) - dayRank(b) || (a < b ? -1 : a > b ? 1 : 0));
+
 const REPOS = 20;    // minutes de repos minimum après la fin d'un match
 const APPEL = 5;     // minutes d'appel avant le match
 const FIN_HOLD = 150; // option « demis et finales en fin de journée » : attente
@@ -168,6 +181,27 @@ const qualLabel = (q) => {
 const exemptsTxt = (b) => (b.paperRounds && (b.paperRounds[0] || 0) > (b.roundsCount[0] || 0)
   ? " · " + ((b.paperRounds[0] || 0) - (b.roundsCount[0] || 0)) + " exempt(s) au 1er tour"
   : "");
+/* « Vainqueur 169 » : libellé d'une source du tableau final par le
+   NUMÉRO du match gagné (numérotation 1 → fin du tournoi, identique
+   dans toutes les vues et l'export) au lieu du code interne « T1-1 » :
+   le juge-arbitre retrouve la source directement dans l'échéancier
+   (repli sur le code si le match n'est pas planifié, ex. forfait) */
+const _srcNumCache = new WeakMap();
+const srcNumMap = (plan) => {
+  let M = _srcNumCache.get(plan);
+  if (M === undefined) {
+    M = new Map();
+    plan.sched.forEach((m) => { if (m.fid !== undefined) M.set(m.tid + "|" + m.fid, m.num); });
+    _srcNumCache.set(plan, M);
+  }
+  return M;
+};
+const vlbl = (plan, m, s) => {
+  if (typeof s !== "string") return qualLabel(s);
+  const n = srcNumMap(plan).get(m.tid + "|" + s);
+  return "Vainqueur " + (n !== undefined ? n : s);
+};
+
 
 /* ---------- code couleur des attentes ----------
    Attente d'un match = temps TOTAL depuis la fin du match précédent
@@ -357,7 +391,7 @@ function buildTab(t, tid) {
    quarts inclus, le jour 2 démarre aux demi-finales ; sinon le jour 2
    démarre aux quarts de finale (le jour 1 s'arrête aux 8es). */
 function cutsDeuxJours(built, jours, duree) {
-  const days = Object.keys(jours).filter((j) => jours[j].actif);
+  const days = daySort(Object.keys(jours).filter((j) => jours[j].actif));
   const res = {};
   if (days.length < 2) return res;
   const terr = (j) => Math.max(1, Math.floor(+jours[j].terrains) || 1);
@@ -405,7 +439,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
   // durée planifiée = durée moyenne + marge de sécurité : la marge absorbe
   // les dépassements réels pour que le repos de 20 min reste garanti
   const duree = Math.max(28, Math.floor(+dureeBrut) || 28) + Math.max(0, Math.floor(+margeBrut) || 0);
-  const days = Object.keys(jours).filter((j) => jours[j].actif);
+  const days = daySort(Object.keys(jours).filter((j) => jours[j].actif));
   // durée et marge peuvent être surchargées pour chaque journée (paramètre
   // vide = valeur commune) ; l'option « demis et finales en fin de journée »
   // est également propre à chaque jour (le 6e argument reste la valeur de
@@ -836,7 +870,7 @@ function App() {
   const [cfgName, setCfgName] = useState("");
   const forfaitsSet = useMemo(() => new Set(Object.keys(wf).filter((k) => wf[k])), [wf]);
 
-  const joursActifs = Object.keys(jours).filter((j) => jours[j].actif);
+  const joursActifs = daySort(Object.keys(jours).filter((j) => jours[j].actif));
 
   const majTab = (i, champ, v) => setTabs((prev) => prev.map((t, k) => (k === i ? { ...t, [champ]: v } : t)));
   const supprTab = (i) => setTabs((prev) => prev.filter((_, k) => k !== i));
@@ -937,7 +971,7 @@ function App() {
 
         <h3 className="font-semibold text-emerald-900">🗓️ Jours du tournoi</h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          {Object.keys(jours).map((j) => (
+          {daySort(Object.keys(jours)).map((j) => (
             <div key={j} className={cardCls}>
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="font-semibold capitalize text-emerald-900">{j}</h4>
@@ -1115,7 +1149,7 @@ function App() {
             const b = buildTab(t, 0);
             return b.poolMs.length + b.playedFinals.length;
           };
-          const joursKeys = Object.keys(jours);
+          const joursKeys = daySort(Object.keys(jours));
           const daysConf = joursKeys.filter((j) => jours[j].actif);
           const besoinFixe = {};
           let besoinDeux = 0, besoinTotal = 0;
@@ -1261,7 +1295,7 @@ function App() {
                   <div>
                     <label className="mb-1 block text-xs font-medium text-emerald-600">Jour(s)</label>
                     <select className={numCls + " w-28"} value={t.jour} onChange={(e) => majTab(i, "jour", e.target.value)}>
-                      {Object.keys(jours).map((jk) => (
+                      {daySort(Object.keys(jours)).map((jk) => (
                         <option key={jk} value={jk}>{jk.charAt(0).toUpperCase() + jk.slice(1)}</option>
                       ))}
                       <option value="les-deux">Les deux</option>
@@ -1345,7 +1379,7 @@ function App() {
         rows.push([
           day, fmtTime(m.appel), fmtTime(m.time), "T" + (m.court + 1), m.num,
           plan.built[m.tid].label, tourLabel(m, plan.built[m.tid]),
-          m.phase === "poule" ? m.a + " vs " + m.b : qualLabel(m.a) + " vs " + qualLabel(m.b),
+          m.phase === "poule" ? m.a + " vs " + m.b : vlbl(plan, m, m.a) + " vs " + vlbl(plan, m, m.b),
           m.att === null || m.att === undefined ? "" : attFmt(m.att),
         ]);
       });
@@ -1584,7 +1618,7 @@ function App() {
                   <td>
                     {m.phase === "poule"
                       ? <span>{m.a} <span className="text-emerald-400">vs</span> {m.b}</span>
-                      : <span className="text-emerald-700">{qualLabel(m.a)} <span className="text-emerald-400">contre</span> {qualLabel(m.b)}</span>}
+                      : <span className="text-emerald-700">{vlbl(plan, m, m.a)} <span className="text-emerald-400">contre</span> {vlbl(plan, m, m.b)}</span>}
                   </td>
                   <td><AttBadge att={m.att} phase={m.attPhase} /></td>
                   {live && (
@@ -1659,7 +1693,7 @@ function App() {
                           <td className="text-xs text-emerald-600">{tourLabel(m, b)}</td>
                           <td>{m.phase === "poule"
                             ? <span>{m.a} <span className="text-emerald-400">vs</span> {m.b}</span>
-                            : <span className="text-emerald-700">{qualLabel(m.a)} <span className="text-emerald-400">contre</span> {qualLabel(m.b)}</span>}</td>
+                            : <span className="text-emerald-700">{vlbl(plan, m, m.a)} <span className="text-emerald-400">contre</span> {vlbl(plan, m, m.b)}</span>}</td>
                           <td><AttBadge att={m.att} phase={m.attPhase} /></td>
                         </tr>
                       ))}
@@ -1725,7 +1759,7 @@ function App() {
                       <td className="text-xs text-emerald-600">{tourLabel(m, b)}</td>
                       <td>{m.phase === "poule"
                         ? <span>{m.a} <span className="text-emerald-400">vs</span> {m.b}</span>
-                        : <span className="text-emerald-700">{qualLabel(m.a)} <span className="text-emerald-400">contre</span> {qualLabel(m.b)}</span>}</td>
+                        : <span className="text-emerald-700">{vlbl(plan, m, m.a)} <span className="text-emerald-400">contre</span> {vlbl(plan, m, m.b)}</span>}</td>
                       <td><AttBadge att={m.att} phase={m.attPhase} /></td>
                     </tr>
                   ))}

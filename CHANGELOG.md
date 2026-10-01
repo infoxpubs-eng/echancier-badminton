@@ -263,6 +263,39 @@ ne pourront pas jouer les 1/2 car ils n'auront pas encore disputé les
    moyenne baisse (54 → 51 min) car les tours regroupés réduisent
    les attentes résiduelles.
 
+## 2026-10-01 — Dimanche après samedi, « Vainqueur 169 » (v1.7)
+
+Deux demandes du juge-arbitre (capture d'écran : les matchs du dimanche
+s'affichaient avant ceux du samedi ; sources du tableau final libellées
+« Vainqueur T1-1 »).
+
+1. **Ordre canonique des jours** : les jours suivent désormais l'ordre
+   samedi → dimanche → « jour 3 », « jour 4 »…, quelle que soit
+   l'ordre de saisie ou l'ordre enregistré dans une configuration
+   (JSON) — une clé « dimanche » placée avant « samedi » ne change
+   plus rien. Corrigé au niveau du moteur : la planification, toutes
+   les vues (planning, synthèse, par classement, par tableau), l'écran
+   de configuration et l'export CSV affichent le samedi en premier, et
+   la **numérotation des matchs** (N° 1 → fin du tournoi) suit le même
+   ordre — les numéros du dimanche ne précèdent plus ceux du samedi.
+2. **« Vainqueur 169 » au lieu de « Vainqueur T1-1 »** : une source du
+   tableau final s'affiche désormais par le **numéro du match gagné**
+   (le même N° que dans toutes les vues et l'export) : « Vainqueur 169
+   contre Vainqueur 170 ». Le juge-arbitre retrouve ainsi la source
+   directement dans l'échéancier, sans décoder le code interne Tx-y.
+   Repli sur le code interne uniquement si le match source n'est pas
+   planifié (forfait W.O.). Appliqué dans le planning, les vues par
+   classement et par tableau, et l'export CSV.
+3. **Nouveau test** `tests/ordre-jours-test.js` : tri canonique des
+   jours (dimanche saisi avant samedi, « jour 3 »/« jour 4 »),
+   numérotation samedi avant dimanche sur une configuration inversée,
+   libellé « Vainqueur <N°> » conforme à la numérotation de
+   l'échéancier, libellé des sources qualifiées inchangé, repli
+   forfait.
+
+Aucun changement de planification : métriques de référence inchangées
+(att60=75, attMax=112, attMoy=51 ; finalesFin 77/112/52 ; 350 matchs).
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :

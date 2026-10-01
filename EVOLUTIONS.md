@@ -288,13 +288,36 @@ pourront pas jouer les 1/2 car ils n'auront pas encore disputé les 1/4 ».
 
 ---
 
+## 2026-10-01 — Lot 9 : ordre des jours + « Vainqueur N° » (v1.7)
+
+Deux demandes du juge-arbitre : « les matchs du Dimanche devraient être
+indiqués après ceux du samedi » et « plutôt que "Vainqueur T1-1",
+indique le numéro de match dont il est vainqueur (ex. "Vainqueur 169") ».
+
+- **Ordre canonique des jours** : tri `daySort` (samedi, dimanche, puis
+  « jour 3 », « jour 4 »…) appliqué dans le moteur (planification,
+  numérotation) et dans toutes les vues — une configuration enregistrée
+  avec les jours dans un autre ordre ne change plus l'affichage ni
+  les N° de matchs.
+- **Libellés « Vainqueur <N°> »** : helper `vlbl` — une source fid du
+  tableau final s'affiche par le numéro du match gagné (numérotation
+  commune à toutes les vues et à l'export CSV) ; repli sur le code
+  interne si le match source n'est pas planifié (forfait).
+- **Nouveau test** `ordre-jours-test.js` (13 fichiers au total) :
+  tri canonique, numérotation samedi avant dimanche sur une
+  configuration inversée, libellés « Vainqueur <N°> », repli forfait.
+- Métriques inchangées (v1.6 : att60=75, max 112, moy 51).
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation
 dans les trois versions (app React, web, hors-ligne) → régénération web
 (`tests/regen-web.sh`) → suite complète de tests (`tests/`) → CHANGELOG →
-commit descriptif → push. La suite compte 12 fichiers de test (dont
-`presets-test.js` depuis la v1.5, `byes-test.js` depuis la v1.5.1, étendu
-en v1.6 pour l'ordre strict des tours). Les métriques de référence depuis
+commit descriptif → push. La suite compte 13 fichiers de test (dont
+`presets-test.js` depuis la v1.5, `byes-test.js` depuis la v1.5.1 —
+étendu en v1.6 pour l'ordre strict des tours — et `ordre-jours-test.js`
+depuis la v1.7). Les métriques de référence depuis
 la v1.6 (base 350 matchs : att60 = 75, max 112, moy 51 ; finalesFin
 77/112/52 ; poules→demis ≤ 150 min) servent de garde-fous de régression.

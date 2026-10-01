@@ -153,6 +153,19 @@ const DISCIPLINES = [
   { key: "DI", label: "Double intergenre", unit: "paires" },
 ];
 const JOURS = ["samedi", "dimanche"]; // jours par défaut (d'autres ajoutables)
+/* ordre canonique des jours : samedi, puis dimanche, puis les jours
+   supplémentaires (« jour 3 », « jour 4 »…) dans l'ordre. Une
+   configuration enregistrée (ou une saisie dans un autre ordre) ne doit
+   jamais afficher ni numéroter les matchs du dimanche avant ceux du
+   samedi */
+const dayRank = (j) => {
+  const i = JOURS.indexOf(j);
+  if (i !== -1) return i;
+  const m = /^jour (\d+)$/.exec(j);
+  return 900 + (m ? parseInt(m[1], 10) : 800);
+};
+const daySort = (arr) => arr.slice().sort((a, b) => dayRank(a) - dayRank(b) || (a < b ? -1 : a > b ? 1 : 0));
+
 const REPOS = 20, APPEL = 5;
 const FIN_HOLD = 150; // option « demis et finales en fin de journée » : attente
 // maximale tolérée après la fin des poules d'un tableau (2h30) — au-delà,
@@ -218,6 +231,27 @@ function exemptsTxt(b) {
     ? " · " + ((b.paperRounds[0] || 0) - (b.roundsCount[0] || 0)) + " exempt(s) au 1er tour"
     : "";
 }
+/* « Vainqueur 169 » : libellé d'une source du tableau final par le
+   NUMÉRO du match gagné (numérotation 1 → fin du tournoi, identique
+   dans toutes les vues et l'export) au lieu du code interne « T1-1 » :
+   le juge-arbitre retrouve la source directement dans l'échéancier
+   (repli sur le code si le match n'est pas planifié, ex. forfait) */
+const _srcNumCache = new WeakMap();
+const srcNumMap = (plan) => {
+  let M = _srcNumCache.get(plan);
+  if (M === undefined) {
+    M = new Map();
+    plan.sched.forEach((m) => { if (m.fid !== undefined) M.set(m.tid + "|" + m.fid, m.num); });
+    _srcNumCache.set(plan, M);
+  }
+  return M;
+};
+const vlbl = (plan, m, s) => {
+  if (typeof s !== "string") return qualLabel(s);
+  const n = srcNumMap(plan).get(m.tid + "|" + s);
+  return "Vainqueur " + (n !== undefined ? n : s);
+};
+
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* ---------- code couleur des attentes ----------
@@ -509,7 +543,7 @@ function buildTab(t, tid) {
 
 /* ---------- coupure jour 2 pour les tableaux sur deux jours ---------- */
 function cutsDeuxJours(built, jours, duree) {
-  const days = Object.keys(jours).filter((j) => jours[j].actif);
+  const days = daySort(Object.keys(jours).filter((j) => jours[j].actif));
   const res = {};
   if (days.length < 2) return res;
   const terr = (j) => Math.max(1, Math.floor(+jours[j].terrains) || 1);
@@ -544,7 +578,7 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
   // durée planifiée = durée moyenne + marge de sécurité : la marge absorbe
   // les dépassements réels pour que le repos de 20 min reste garanti
   const duree = Math.max(28, Math.floor(+dureeBrut) || 28) + Math.max(0, Math.floor(+margeBrut) || 0);
-  const days = Object.keys(jours).filter((j) => jours[j].actif);
+  const days = daySort(Object.keys(jours).filter((j) => jours[j].actif));
   // durée et marge peuvent être surchargées pour chaque journée (paramètre
   // vide = valeur commune) ; l'option « demis et finales en fin de journée »
   // est également propre à chaque jour (le 6e argument reste la valeur de
@@ -905,13 +939,13 @@ function renderConfig() {
   const tabCard = (t, i) => {
     const b = buildTab(t, i);
     const builtAll = state.tabs.map((t2, k) => buildTab(t2, k));
-    const joursActifsC = Object.keys(state.jours).filter((jk) => state.jours[jk].actif);
+    const joursActifsC = daySort(Object.keys(state.jours).filter((jk) => state.jours[jk].actif));
     const cuts = cutsDeuxJours(builtAll, state.jours, joursActifsC.length ? dureeJourOf(joursActifsC[0]) : dureeCalc());
     const cutInfo = t.jour === "les-deux" && cuts[i] ? " · jour 2 : à partir des " + cuts[i].label.toLowerCase() : "";
     const opt = (d) => '<option value="' + d.key + '" ' + (t.disc === d.key ? "selected" : "") + ">" + d.key + "</option>";
     const jopt = (v, l) => '<option value="' + v + '" ' + (t.jour === v ? "selected" : "") + ">" + l + "</option>";
     const fmtSel = (v, l) => '<option value="' + v + '" ' + ((t.format || "poules") === v ? "selected" : "") + ">" + l + "</option>";
-    const jourOpts = Object.keys(state.jours).map((jk) => jopt(jk, jk.charAt(0).toUpperCase() + jk.slice(1))).join("") + jopt("les-deux", "Les deux");
+    const jourOpts = daySort(Object.keys(state.jours)).map((jk) => jopt(jk, jk.charAt(0).toUpperCase() + jk.slice(1))).join("") + jopt("les-deux", "Les deux");
     return '<div class="card">' +
       '<div class="row">' +
         "<div><label>Discipline</label><select class='w80' onchange=\"App.setTab(" + i + ",'disc',this.value)\">" + DISCIPLINES.map(opt).join("") + "</select></div>" +
@@ -945,7 +979,7 @@ function renderConfig() {
       '<p style="font-size:.85rem;color:var(--em)">Paramétrage de base : 5 tableaux par catégorie (« Série 1 » à « Série 5 »), 9 joueurs ou paires par défaut, sans tableaux intergenre (ajoutables manuellement). Convention : simples et mixte le samedi, doubles le dimanche. Les poules (3-5) sont composées automatiquement pour minimiser le nombre de matchs ; au-delà de 24 inscrits, élimination directe. Aucun nom à saisir. L\'échéancier démarre ensuite les tableaux progressivement — les séries aux tours les plus nombreux d\'abord, les suivantes au fil des créneaux libérés — et alterne les matchs pour minimiser l\'attente, avec ' + REPOS + " min de repos minimum et " + APPEL + " min d'appel.</p>" +
     "</div>" +
     "<h3>🗓️ Jours du tournoi</h3>" +
-    '<div class="grid2" style="margin-bottom:10px">' + Object.keys(state.jours).map(jourCard).join("") + "</div>" +
+    '<div class="grid2" style="margin-bottom:10px">' + daySort(Object.keys(state.jours)).map(jourCard).join("") + "</div>" +
     '<button class="btn btn-o" style="margin-bottom:6px"' + (Object.keys(state.jours).length >= 4 ? " disabled" : "") + ' onclick="App.ajoutJour()">＋ Ajouter un jour</button>' +
     '<p style="font-size:.72rem;color:var(--em);margin:0 0 16px">« Demis et finales en fin de journée » est propre à chaque jour : les demis et finales des tableaux sont programmées en fin de journée pour enchaîner la remise des prix — mais si un tableau attendrait plus de 2h30 après la fin de ses propres poules, ses tours finals avancent dès que possible. Les tableaux démarrés tardivement ou aux tours naturellement tardifs restent tenus en fin de journée. Durée et marge laissées vides = valeurs communes.</p>' +
     '<div class="card" style="margin-bottom:16px"><h3>⚙️ Paramètres communs</h3>' +
@@ -996,7 +1030,7 @@ function presetsCard() {
 
 /* ---------- estimation de capacité ---------- */
 function estimationCard() {
-  const joursKeys = Object.keys(state.jours);
+  const joursKeys = daySort(Object.keys(state.jours));
   const daysConf = joursKeys.filter((j) => state.jours[j].actif);
   const dureeJour = (j) => {
     const J = state.jours[j];
@@ -1176,7 +1210,7 @@ function viewPlanning(plan) {
       const fini = !!state.finis[m.key];
       const rencontre = m.phase === "poule"
         ? esc(m.a) + " <span style='color:#6ee7b7'>vs</span> " + esc(m.b)
-        : "<span style='color:var(--em-d)'>" + esc(qualLabel(m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(qualLabel(m.b)) + "</span>";
+        : "<span style='color:var(--em-d)'>" + esc(vlbl(plan, m, m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(vlbl(plan, m, m.b)) + "</span>";
       const phase = tourLabel(m, b);
       const direct = state.live
         ? "<td class='no-print'><button class='live-btn" + (fini ? " live-done" : "") + "' title=\"marquer le match comme terminé\" onclick=\"App.toggleFini('" + m.key + "')\">✓</button> <button class='live-btn live-wo' title=\"forfait (walk-over) : le match ne se joue pas, le créneau est libéré et la journée se replanifie\" onclick=\"App.setForfait('" + m.key + "',true)\">W.O.</button></td>"
@@ -1236,7 +1270,7 @@ function viewClassement(plan) {
     const rows = ms.map((m) => {
       const rencontre = m.phase === "poule"
         ? esc(m.a) + " <span style='color:#6ee7b7'>vs</span> " + esc(m.b)
-        : "<span style='color:var(--em-d)'>" + esc(qualLabel(m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(qualLabel(m.b)) + "</span>";
+        : "<span style='color:var(--em-d)'>" + esc(vlbl(plan, m, m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(vlbl(plan, m, m.b)) + "</span>";
       return "<tr><td style='font-size:.72rem;font-weight:700;color:var(--em-d)'>" + m.day + "</td><td class='mono appel'>" + fmtTime(m.appel) + "</td><td class='mono'>" + fmtTime(m.time) +
         "</td><td><span class='court'>T" + (m.court + 1) + "</span></td><td class='mono' style='font-weight:700;color:var(--em-d)'>" + m.num + "</td><td style='font-size:.72rem;color:var(--em)'>" +
         tourLabel(m, b) + "</td><td>" + rencontre + "</td><td>" + attBadgeHtml(m.att, m.attPhase) + "</td></tr>";
@@ -1265,7 +1299,7 @@ function viewTab(plan, tid) {
   const rows = ms.map((m) => {
     const rencontre = m.phase === "poule"
       ? esc(m.a) + " <span style='color:#6ee7b7'>vs</span> " + esc(m.b)
-      : "<span style='color:var(--em-d)'>" + esc(qualLabel(m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(qualLabel(m.b)) + "</span>";
+      : "<span style='color:var(--em-d)'>" + esc(vlbl(plan, m, m.a)) + " <span style='color:#6ee7b7'>contre</span> " + esc(vlbl(plan, m, m.b)) + "</span>";
     return "<tr><td style='font-size:.72rem;font-weight:700;color:var(--em-d)'>" + m.day + "</td><td class='mono appel'>" + fmtTime(m.appel) + "</td><td class='mono'>" + fmtTime(m.time) + "</td><td><span class='court'>T" + (m.court + 1) + "</span></td><td class='mono' style='font-weight:700;color:var(--em-d)'>" + m.num + "</td><td style='font-size:.72rem;color:var(--em)'>" + tourLabel(m, b) + "</td><td>" + rencontre + "</td><td>" + attBadgeHtml(m.att, m.attPhase) + "</td></tr>";
   }).join("");
   const stAll = attStatsAll(ms);
@@ -1358,7 +1392,7 @@ Object.assign(App, {
       (plan.perDay[day] || []).slice().sort((a, b) => a.time - b.time || a.court - b.court).forEach((m) => {
         rows.push([day, fmtTime(m.appel), fmtTime(m.time), "T" + (m.court + 1), m.num, plan.built[m.tid].label,
           tourLabel(m, plan.built[m.tid]),
-          m.phase === "poule" ? m.a + " vs " + m.b : qualLabel(m.a) + " vs " + qualLabel(m.b),
+          m.phase === "poule" ? m.a + " vs " + m.b : vlbl(plan, m, m.a) + " vs " + vlbl(plan, m, m.b),
           m.att === null || m.att === undefined ? "" : attFmt(m.att)]);
       });
     });
