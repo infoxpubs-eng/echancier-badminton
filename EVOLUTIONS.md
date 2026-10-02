@@ -446,9 +446,10 @@ de 20 min.
   flottant retour en haut à l'écran tournoi, anneaux `focus-visible`
   par thème.
 - **Publication** : version de test sous `/ux-test/` (web + hors-ligne)
-  ; la production v1.10 reste la racine jusqu'à validation — la
-  promotion consistera à régénérer `index.html` et `app/` depuis les
-  mêmes sources.
+  puis **promotion en production (v2.0)** après validation :
+  `index.html` et `app/` régénérés depuis les mêmes sources, octets
+  identiques à la version de test (diff vérifié) ; `/ux-test/` conservé
+  comme archive.
 - **Hors périmètre** : moteur, métriques, palette (pastilles, chips,
   bulles d'alerte) — inchangés.
 - **Tests** : nouveau `ux-test.js` (16ᵉ fichier, 28 contrôles :

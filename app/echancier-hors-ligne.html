@@ -75,6 +75,18 @@
   .note-sum::after { content: " ▸"; }
   .note[open] .note-sum::after { content: " ▾"; }
   .note-body { padding: 2px 12px 8px; }
+  /* ---------- UX : navigation rapide (ancres), barre d'action collante
+     « Générer », bouton flottant retour en haut, anneaux de focus,
+     suppression armée en deux clics ---------- */
+  .quicknav { position: sticky; top: 8px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--em-l); border-radius: 12px; background: rgba(255, 255, 255, .92); box-shadow: 0 2px 8px rgba(0, 0, 0, .07); margin-bottom: 12px; }
+  .quicknav a, .quicknav button { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: .78rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; background: none; text-decoration: none; color: var(--em); }
+  .quicknav a:hover, .quicknav button:hover { background: var(--em-l); }
+  .actbar { position: sticky; bottom: 8px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--em-l); border-radius: 12px; background: rgba(255, 255, 255, .95); box-shadow: 0 -2px 12px rgba(0, 0, 0, .10); margin-top: 10px; }
+  .actbar .est { font-size: .8rem; font-weight: 600; color: var(--em-d); }
+  .backtop { position: fixed; right: 16px; bottom: 16px; z-index: 40; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, .18); }
+  body.theme-dark .quicknav, body.theme-dark .actbar { background: rgba(16, 26, 44, .92); }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--em); outline-offset: 2px; }
+  .btn-x.pend { background: #dc2626; border-color: #dc2626; color: #fff; }
   /* impression / export PDF : masque les boutons et garde le contenu */
   @media print { .no-print { display: none !important; } body { background: #fff !important; } }
   .live-btn { border-radius: 8px; padding: 6px 10px; font-size: .72rem; font-weight: 700; cursor: pointer; border: 1px solid #a7f3d0; background: #fff; }
@@ -375,6 +387,8 @@ const state = {
   cadence: 0,
   // tableau de bord statistique (bouton « Statistiques ») : affiché/masqué
   stats: false,
+  // UX : suppression en deux clics — cible en attente de confirmation
+  confirmDel: null,
   theme: "classique",
   jours: {
     samedi: { actif: true, terrains: 8, debut: "08:30", fin: "21:50", dureeMatch: "", marge: "", finalesFin: false, pauseDebut: "", pauseFin: "" },
@@ -1091,8 +1105,12 @@ function noteHtml(label, body) {
 function renderConfig() {
   const jourCard = (j) => {
     const J = state.jours[j];
+    // UX : suppression en deux clics — 1er clic arme, 2ᵉ clic confirme
+    const jourPend = state.confirmDel === "jour:" + j;
     const delBtn = (j !== "samedi" && j !== "dimanche")
-      ? '<button class="btn-x" style="padding:4px 10px;font-size:.75rem" onclick="App.supprJour(\'' + j + '\')">✕</button>'
+      ? (jourPend
+        ? '<button class="btn-x pend" style="padding:4px 10px;font-size:.75rem" title="2ᵉ clic : confirmer la suppression" onclick="App.supprJour(\'' + j + '\')">Confirmer ✕ ?</button>'
+        : '<button class="btn-x" style="padding:4px 10px;font-size:.75rem" title="1er clic : armer la suppression · 2ᵉ clic : confirmer" onclick="App.askSuppr(\'jour\', \'' + j + '\')">✕</button>')
       : "";
     return '<div class="card">' +
       '<div class="row" style="justify-content:space-between;align-items:center">' +
@@ -1147,7 +1165,9 @@ function renderConfig() {
         "<div><label>" + (t.format === "suisse-elim" ? "Qualifiés élim." : "Sortants/poule") + "</label><input type='number' min='" + (t.format === "suisse-elim" ? "2" : "1") + "' " + (t.format === "suisse-elim" ? "" : "max='4' ") + "class='w80' " + (t.format === "suisse" ? "disabled " : "") + "value='" + t.qualifs + "' onchange=\"App.setTabNum(" + i + ",'qualifs',this.value)\"></div>" +
         "<div><label>Jour(s)</label><select class='w130' onchange=\"App.setTab(" + i + ",'jour',this.value)\">" +
           jourOpts + "</select></div>" +
-        '<button class="btn-x xdel" onclick="App.supprTab(' + i + ')">✕ Retirer</button>' +
+        (state.confirmDel === "tab:" + i
+          ? '<button class="btn-x xdel pend" title="2ᵉ clic : confirmer la suppression" onclick="App.supprTab(' + i + ')">Confirmer ✕ ?</button>'
+          : '<button class="btn-x xdel" title="1er clic : armer la suppression · 2ᵉ clic : confirmer" onclick="App.askSuppr(\'tab\', ' + i + ')">✕ Retirer</button>') +
       "</div>" +
       noteHtml("Détail du tableau", '<p style="font-size:.75rem;color:var(--em);margin:0"><b>' + esc(b.label) + "</b> — " +
       (b.suisse
@@ -1161,16 +1181,43 @@ function renderConfig() {
       (t.jour !== "les-deux" && state.jours[t.jour] && !state.jours[t.jour].actif ? " ⚠️ " + t.jour + " inactif" : "") + cutInfo + "</p>") +
     "</div>";
   };
+  /* ---------- UX : validation en direct de la configuration ---------- */
+  const warnList = [];
+  const jkeysAll = daySort(Object.keys(state.jours));
+  jkeysAll.forEach(function (j) {
+    const J = state.jours[j];
+    if (!J.actif) return;
+    const d = toMin(J.debut, null), f = toMin(J.fin, null);
+    if (d !== null && f !== null && f <= d) warnList.push("⚠️ " + j + " : la fin (" + J.fin + ") est avant ou égale au début (" + J.debut + ")");
+    const terr = +J.terrains;
+    if (!(terr >= 1 && terr <= 16)) warnList.push("⚠️ " + j + " : " + J.terrains + " terrain(s) — borne appliquée au calcul : 1 à 16");
+    const pd = toMin(J.pauseDebut, null), pf = toMin(J.pauseFin, null);
+    if ((pd === null) !== (pf === null)) warnList.push("⚠️ " + j + " : pause incomplète (renseignez le début et la fin, ou videz les deux)");
+    else if (pd !== null && pf !== null && pf <= pd) warnList.push("⚠️ " + j + " : la fin de pause est avant son début");
+  });
+  if (!jkeysAll.some(function (j) { return state.jours[j].actif; })) warnList.push("⚠️ Aucun jour actif : ajoutez ou réactivez au moins un jour");
+  if (!state.tabs.length) warnList.push("⚠️ Aucun tableau : ajoutez au moins un tableau");
+  const warnBanner = warnList.length
+    ? '<div class="no-print" style="border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:.85rem"><b>Vérification de la configuration</b><ul style="margin:4px 0 2px 18px;padding:0;font-size:.75rem">' + warnList.map(function (w) { return "<li>" + w + "</li>"; }).join("") + '</ul><div style="font-size:.7rem">Ces points ne bloquent pas la génération : le moteur borne les valeurs, mais corrigez-les pour un échéancier fidèle.</div></div>'
+    : "";
+  // estimation live du nombre de matchs des tableaux courants (poules + suite)
+  const besoinEstime = state.tabs.reduce(function (s, t) { const b = buildTab(t, 0); return s + b.poolMs.length + b.playedFinals.length; }, 0);
   return '<div style="max-width:920px;margin:0 auto">' +
     '<div class="card" style="margin-bottom:16px">' +
       '<div style="display:flex;align-items:center;gap:12px">' + BAD18_LOGO + "<h1>🏸 Échéancier Tournoi de Badminton</h1></div>" +
       noteHtml("Fonctionnement", '<p style="font-size:.85rem;color:var(--em)">Paramétrage de base : 5 tableaux par catégorie (« Série 1 » à « Série 5 »), 9 joueurs ou paires par défaut, sans tableaux intergenre (ajoutables manuellement). Convention : simples et mixte le samedi, doubles le dimanche. Les poules (3-5) sont composées automatiquement pour minimiser le nombre de matchs ; au-delà de 24 inscrits, élimination directe. Aucun nom à saisir. L\'échéancier démarre ensuite les tableaux progressivement — les séries aux tours les plus nombreux d\'abord, les suivantes au fil des créneaux libérés — et alterne les matchs pour minimiser l\'attente, avec ' + REPOS + " min de repos minimum et " + APPEL + " min d'appel.</p>") +
     "</div>" +
-    "<h3>🗓️ Jours du tournoi</h3>" +
+    /* UX : navigation rapide par ancres + tout déplier/replier les notes */
+    '<nav class="quicknav no-print" aria-label="Accès rapide">' +
+      '<a href="#sec-jours">🗓️ Jours</a><a href="#sec-parametres">⚙️ Paramètres</a><a href="#sec-configs">💾 Configurations</a><a href="#sec-estimation">📊 Estimation</a><a href="#sec-tableaux">📋 Tableaux</a>' +
+      '<button title="déplier ou replier toutes les notes de la page" onclick="App.toggleNotes(this)">ℹ️ Tout déplier</button>' +
+    "</nav>" +
+    warnBanner +
+    '<h3 id="sec-jours">🗓️ Jours du tournoi</h3>' +
     '<div class="grid2" style="margin-bottom:10px">' + daySort(Object.keys(state.jours)).map(jourCard).join("") + "</div>" +
     '<button class="btn btn-o" style="margin-bottom:6px"' + (Object.keys(state.jours).length >= 4 ? " disabled" : "") + ' onclick="App.ajoutJour()">＋ Ajouter un jour</button>' +
     noteHtml("Demis et finales en fin de journée", '<p style="font-size:.72rem;color:var(--em);margin:0">« Demis et finales en fin de journée » est propre à chaque jour : les demis et finales des tableaux sont programmées en fin de journée pour enchaîner la remise des prix — mais si un tableau attendrait plus de 2h30 après la fin de ses propres poules, ses tours finals avancent dès que possible. Les tableaux démarrés tardivement ou aux tours naturellement tardifs restent tenus en fin de journée. Durée et marge laissées vides = valeurs communes.</p>') +
-    '<div class="card" style="margin-bottom:16px"><h3>⚙️ Paramètres communs</h3>' +
+    '<div id="sec-parametres" class="card" style="margin-bottom:16px"><h3>⚙️ Paramètres communs</h3>' +
       "<div class='row'><div><label>Durée moyenne d'un match (min, min 28)</label><input type='number' min='28' max='90' class='w80' value='" + state.dureeMatch + "' onchange=\"App.setNum('dureeMatch',this.value)\"></div>" +
       "<div><label>Marge de sécurité par match (min, 0–20)</label><input type='number' min='0' max='20' class='w80' value='" + state.marge + "' onchange=\"App.setNum('marge',this.value)\"></div>" +
       noteHtml("Repos et appel", '<div style="font-size:.75rem;color:var(--em)">Repos minimum : ' + REPOS + " min après la fin d'un match · Appel : " + APPEL + " min avant chaque match</div>") +
@@ -1190,11 +1237,17 @@ function renderConfig() {
     "</div>" +
     presetsCard() +
     estimationCard() +
-    "<h3>📋 Tableaux (discipline × classement)</h3>" +
+    '<h3 id="sec-tableaux">📋 Tableaux (discipline × classement)</h3>' +
     '<div class="grid2" style="grid-template-columns:1fr;margin:8px 0">' + state.tabs.map(tabCard).join("") + "</div>" +
     '<button class="btn btn-o" onclick="App.ajoutTab()">＋ Ajouter un tableau</button>' +
     '<div style="height:12px"></div>' +
     '<button class="btn" style="width:100%;padding:14px;font-size:1rem" onclick="App.generer()">Générer l\'échéancier 🏸</button>' +
+    /* UX : barre d'action collante — toujours visible, estimation live */
+    '<div class="actbar no-print">' +
+      '<button class="btn" style="padding:10px 18px;font-size:.95rem" onclick="App.generer()">Générer l\'échéancier 🏸</button>' +
+      '<span class="est" title="matchs estimés (poules + tableaux finaux) des tableaux et jours actuels">≈ ' + besoinEstime + " matchs · " + state.tabs.length + " tableau(x) · " + jkeysAll.filter(function (j) { return state.jours[j].actif; }).length + " jour(s) actif(s)</span>" +
+      (warnList.length ? "<span style='font-size:.72rem;font-weight:700;color:#b45309' title=\"voir la bannière « Vérification de la configuration »\">⚠️ " + warnList.length + " point(s) à vérifier</span>" : "") +
+    "</div>" +
   "</div>";
 }
 
@@ -1207,9 +1260,11 @@ function presetsCard() {
       "<b>" + esc(nom) + "</b> <span class='mut'>" + (c.tabs ? c.tabs.length : 0) + " tableau(x) · " +
       (c.jours ? Object.keys(c.jours).length : 0) + " jour(s)</span>" +
       "<button class='btn btn-o' style='padding:4px 10px;font-size:.75rem' onclick=\"App.chargerCfg(" + i + ")\">Charger</button>" +
-      "<button class='btn btn-x' style='padding:4px 10px;font-size:.75rem' onclick=\"App.supprCfg(" + i + ")\">Supprimer</button></div>";
+      (state.confirmDel === "cfg:" + i
+        ? "<button class='btn btn-x pend' style='padding:4px 10px;font-size:.75rem' title=\"2ᵉ clic : confirmer la suppression\" onclick=\"App.supprCfg(" + i + ")\">Confirmer ✕ ?</button>"
+        : "<button class='btn btn-x' style='padding:4px 10px;font-size:.75rem' title=\"1er clic : armer la suppression · 2ᵉ clic : confirmer\" onclick=\"App.askSuppr('cfg', " + i + ")\">Supprimer</button>") + "</div>";
   }).join("");
-  return '<div class="card" style="margin-bottom:16px"><h3>💾 Configurations enregistrées</h3>' +
+  return '<div id="sec-configs" class="card" style="margin-bottom:16px"><h3>💾 Configurations enregistrées</h3>' +
     noteHtml("Configurations enregistrées", '<p style="font-size:.72rem;color:var(--em)">Sauvegardez une configuration de départ (jours, tableaux, durées, thème) pour y revenir ensuite ; exportez-la en JSON pour l\'archiver ou la transférer, puis réimportez-la. La configuration « Dernière (auto) » est mise à jour à chaque génération.</p>') +
     "<div class='row' style='gap:8px;flex-wrap:wrap'>" +
       "<input type='text' id='cfgNom' placeholder=\"Nom de la configuration\" style='flex:1;min-width:170px'>" +
@@ -1279,7 +1334,7 @@ function estimationCard() {
   const builtAll = state.tabs.map((t, k) => buildTab(t, k));
   const cuts = cutsDeuxJours(builtAll, state.jours, daysConf.length ? dureeJour(daysConf[0]) : dureeCalc());
   const cutTxt = builtAll.filter((b) => cuts[b.tid]).map((b) => esc(b.label) + " : jour 2 à partir des " + cuts[b.tid].label.toLowerCase()).join(" · ");
-  return '<div class="card" style="margin-bottom:16px"><h3>📊 Estimation de capacité (matchs jouables)</h3>' +
+  return '<div id="sec-estimation" class="card" style="margin-bottom:16px"><h3>📊 Estimation de capacité (matchs jouables)</h3>' +
     '<table><thead><tr><th>Jour</th><th>Capacité</th><th title="besoin des tableaux affectés à CE jour uniquement — les tableaux « les deux jours » ne sont pas comptés ici (colonne suivante)">Besoin fixe</th><th>Les deux jours</th><th title="capacité − besoin fixe uniquement : les tableaux « les deux jours » n\'y sont pas déduits — ne pas s\'y fier pour savoir si la journée tient, voir « Marge réelle »">Marge</th><th title="matchs réellement planifiés avec les paramètres courants (repos et alternance inclus), y compris les matchs des tableaux « les deux jours » tombés sur ce jour">Planifié</th><th title="marge en minutes entre la fin réelle de la journée planifiée et l\'horaire de fermeture — négatif = le dernier match finit après la fermeture (rien n\'est supprimé)">Marge réelle</th></tr></thead><tbody>' + rows + "</tbody></table>" +
     noteHtml("Lecture de l'estimation", '<p style="font-size:.75rem;color:var(--em);margin:0">Capacité d\'un jour = terrains × (horaire ouvert ÷ durée de match). Besoin total : <b>' + besoinTotal + "</b> matchs (poules + tableaux finaux), dont <b>" + besoinDeux + "</b> à répartir sur les deux jours, pour une capacité totale de <b>" + capTotal + "</b> matchs. La colonne « Marge » est <b>théorique</b> : elle suppose les terrains occupés en continu et ne déduit que le besoin <b>fixe</b> du jour — les tableaux « les deux jours » n'y sont pas comptés, alors qu'ils se planifient en partie chaque jour (visible dans « Planifié », suffixe « deux-jours »). La colonne « Marge réelle » est calculée sur la planification effective (repos de " + REPOS + " min, appel, alternance des tours et pauses inclus) : c\'est elle qui dit si la journée tient réellement — <b>une marge théorique positive ne garantit pas que tout se joue dans l\'horaire</b>. Une marge réelle négative signifie que le dernier match finit après la fermeture (ex. −201 min = fermeture 17:00, dernier match 20:21) : <b>aucun match n\'est supprimé</b>, le moteur planifie tout, même au-delà de l\'horaire, et l\'écran tournoi l\'affiche aussi (⚠️ horaire de fin modifié)." +
     (realPlan.unscheduled.length > 0 ? " <b style='color:#b91c1c'>⚠️ " + realPlan.unscheduled.length + " match(s) non planifiable(s) avec ces paramètres.</b>" : "") + "</p>") +
@@ -1376,6 +1431,7 @@ function renderTournoi() {
         '<button class="btn btn-o" title="imprime la vue courante ou enregistrez-la en PDF" onclick="window.print()">🖨️ PDF / Imprimer</button>' +
         '<button class="btn btn-o" onclick="App.backToConfig()">⚙️ Modifier la configuration</button>' +
         "<button class=\"btn\" style=\"" + (state.stats ? "background:#059669;color:#fff;border-color:#059669" : "color:#065f46") + "\" title=\"afficher/masquer le tableau de bord statistique du tournoi : inscrits, paires, matchs, durées, attentes, occupation des terrains\" onclick=\"App.setStats(" + !state.stats + ")\">📊 Statistiques</button>" +
+        '<button class="btn btn-o" title="déplier ou replier toutes les notes de la page" onclick="App.toggleNotes(this)">ℹ️ Tout déplier</button>' +
       "</div>" +
     "</div>" +
     (state.live
@@ -1404,13 +1460,14 @@ function renderTournoi() {
     (att60 > 0
       ? '<div class="warn" style="margin-bottom:10px;background:#fffbeb;border-color:#fde68a;color:#92400e">⏱️ ' + att60 + " match(s) avec une attente estimée ≥ 1h (maximum " + attFmt(attMaxAll) + "). L'ordonnancement sert déjà en priorité les joueurs/paires les plus attendus ; pour réduire ces attentes : ajouter un terrain, élargir l'horaire, ou répartir les tableaux sur les deux jours.</div>"
       : '<div class="ok" style="margin-bottom:10px">✅ Aucune attente estimée ne dépasse 1h — enchaînements optimisés.</div>') +
-    '<div class="tabs no-print" style="margin-bottom:14px">' +
+    '<div class="tabs no-print" style="position:sticky;top:6px;z-index:30;margin-bottom:14px">' +
       tabsBtns.map(([k, l]) => '<button class="tab ' + (state.vueTab === k ? "on" : "") + '" onclick="App.setVueTab(\'' + k + "')\">" + esc(l) + "</button>").join("") +
     "</div>" +
     noteHtml("Légende des attentes", '<div class="card" style="margin-bottom:0;font-size:.75rem;color:var(--em)"><b style="color:var(--em-d)">⏱ ATTENTE depuis le tour précédent</b> — attente totale depuis la fin du match précédent du joueur ou de la paire le plus attendu du match, repos de ' + REPOS + " min inclus : " +
       ATT_STEPS.map((s) => "<span class='attb' style='background:" + s.bg + ";color:" + s.fg + "'>" + s.lbl + "</span>").join(" ") +
       " — plus c'est vert, plus le joueur/la paire enchaîne vite après son tour précédent ; orange à rouge = longue attente. Objectif : toutes les attentes < 1h. Colonne Attente : « — » = premier tour du joueur/de la paire (attente non applicable), badge « ≈ » = délai depuis la fin de la phase précédente du tableau (premier tour d'élimination directe issu des poules/rondes suisses). Colonne N° : numéro du match, de 1 à la fin du tournoi, identique dans toutes les vues et l'export CSV ; le tour du match est indiqué dans la colonne Tour. Les horaires sont donnés à titre indicatif : en cas de dépassement réel, le repos de " + REPOS + " min passe avant l'heure affichée — les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</div>") +
     body +
+    '<button class="backtop no-print btn" style="padding:10px 14px" title="remonter en haut de la page" onclick="window.scrollTo(0,0)">↑</button>' +
     "<footer>" + total + " matchs planifiés — appel " + APPEL + " min avant le match, " + REPOS + " min de repos minimum après le dernier match, alternance optimisée pour minimiser l'attente (objectif < 1h). 2 sets gagnants de 15 points, écart de 2, plafond 21, échange de côté à 8. Horaires donnés à titre indicatif — le repos réel ne descend jamais sous " + REPOS + " min sans l'accord du juge-arbitre ou des joueurs/paires.</footer>" +
   "</div>";
 }
@@ -1555,17 +1612,28 @@ Object.assign(App, {
     state.jours["jour " + n] = { actif: true, terrains: 8, debut: "08:30", fin: "18:00", dureeMatch: "", marge: "", finalesFin: false };
     render();
   },
-  supprJour: (j) => { delete state.jours[j]; render(); },
+  supprJour: (j) => { delete state.jours[j]; state.confirmDel = null; render(); },
   setNum: (f, v) => { state[f] = v === "" ? "" : parseInt(v, 10); },
   setCombosTox: (v) => { state.combosTox = !!v; render(); },
   setCadence: (v) => { state.cadence = Math.min(1, Math.max(0, parseFloat(v) || 0)); render(); },
   setStats: (v) => { state.stats = !!v; render(); },
+  // UX : confirmation de suppression en deux clics — 1er clic arme le bouton
+  // (« Confirmer ✕ ? »), 2ᵉ clic exécute via l'action de suppression réelle
+  askSuppr: (kind, key) => { state.confirmDel = kind + ":" + String(key); render(); },
+  // UX : déplier/replier toutes les notes de la page en un clic (pilotage
+  // direct des <details> natifs, sans re-rendu pour garder l'état ouvert)
+  toggleNotes: (btn) => {
+    const els = document.querySelectorAll("details.note");
+    const anyClosed = Array.prototype.some.call(els, function (d) { return !d.open; });
+    Array.prototype.forEach.call(els, function (d) { d.open = anyClosed; });
+    if (btn) btn.innerHTML = anyClosed ? "ℹ️ Tout replier" : "ℹ️ Tout déplier";
+  },
   setTheme: (v) => { state.theme = ["bad18", "dark"].indexOf(v) >= 0 ? v : "classique"; render(); },
-  setTab: (i, f, v) => { state.tabs[i][f] = v; render(); },
+  setTab: (i, f, v) => { state.tabs[i][f] = v; state.confirmDel = null; render(); },
   setTabSilent: (i, f, v) => { state.tabs[i][f] = v; },
   setTabNum: (i, f, v) => { state.tabs[i][f] = v === "" ? "" : parseInt(v, 10); render(); },
-  ajoutTab: () => { state.tabs.push({ disc: "SM", classement: "", nb: 9, qualifs: 2, jour: "samedi", format: "", rondes: "" }); render(); },
-  supprTab: (i) => { state.tabs.splice(i, 1); render(); },
+  ajoutTab: () => { state.tabs.push({ disc: "SM", classement: "", nb: 9, qualifs: 2, jour: "samedi", format: "", rondes: "" }); state.confirmDel = null; render(); },
+  supprTab: (i) => { state.tabs.splice(i, 1); state.confirmDel = null; render(); },
   setLive: (v) => { state.live = !!v; render(); },
   toggleFini: (k) => { state.finis[k] = !state.finis[k]; render(); },
   setForfait: (k, v) => { state.wf[k] = !!v; render(); },
@@ -1578,10 +1646,12 @@ Object.assign(App, {
     render();
   },
   chargerCfg: (i) => {
+    state.confirmDel = null;
     const names = cfgNames();
     if (names[i] && cfgApply(cfgStoreRead()[names[i]])) render(true);
   },
   supprCfg: (i) => {
+    state.confirmDel = null;
     const names = cfgNames();
     const o = cfgStoreRead();
     delete o[names[i]];

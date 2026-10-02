@@ -470,6 +470,15 @@ Aucun changement du moteur, des métriques ni de la palette (pastilles
 d'attente, chips de marge, bulles d'alerte). Nouveau test `ux-test.js`
 (16ᵉ fichier, 28 contrôles) ; suite 16/16 verts.
 
+## 2026-10-02 — v2.0 : promotion de la version de test en production
+
+La v2.0-rc ci-dessus a été validée et devient **la production** :
+`index.html` et `app/echancier-hors-ligne.html` sont régénérés depuis
+les mêmes sources (octets identiques à `/ux-test/`, vérifiés par diff).
+La production passe donc de v1.10 à v2.0 ; le dossier `/ux-test/` est
+conservé comme archive de la version de test. Suite 16/16 verts
+(dont `web-check` revalidé), moteur, métriques et palette inchangés.
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :

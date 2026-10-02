@@ -973,6 +973,31 @@ const NOTE_CSS = `
 .note-body { padding: 2px 12px 8px; }
 @media print { .note { display: none !important; } }
 `;
+/* ---------- UX : navigation rapide (ancres), barre d'action collante
+   « Générer », bouton flottant retour en haut, anneaux de focus et état
+   « suppression armée » (confirmation en deux clics) ---------- */
+const UX_CSS = `
+.quicknav { position: sticky; top: 8px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid #a7f3d0; border-radius: 12px; background: rgba(255, 255, 255, .92); box-shadow: 0 2px 8px rgba(0, 0, 0, .07); }
+.theme-bad18 .quicknav { border-color: #fecaca; }
+.theme-dark .quicknav { border-color: #33517a; background: rgba(16, 26, 44, .92); }
+.quicknav a, .quicknav button { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: .78rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; background: none; text-decoration: none; color: #047857; }
+.quicknav a:hover, .quicknav button:hover { background: #d1fae5; }
+.theme-bad18 .quicknav a, .theme-bad18 .quicknav button { color: #b91c1c; }
+.theme-bad18 .quicknav a:hover, .theme-bad18 .quicknav button:hover { background: #fee2e2; }
+.theme-dark .quicknav a, .theme-dark .quicknav button { color: #7dd3fc; }
+.theme-dark .quicknav a:hover, .theme-dark .quicknav button:hover { background: #1a2c47; }
+.actbar { position: sticky; bottom: 8px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #a7f3d0; border-radius: 12px; background: rgba(255, 255, 255, .95); box-shadow: 0 -2px 12px rgba(0, 0, 0, .10); }
+.theme-bad18 .actbar { border-color: #fecaca; }
+.theme-dark .actbar { border-color: #33517a; background: rgba(16, 26, 44, .95); }
+.actbar .est { font-size: .8rem; font-weight: 600; color: #047857; }
+.theme-bad18 .actbar .est { color: #7f1d1d; }
+.theme-dark .actbar .est { color: #7dd3fc; }
+.backtop { position: fixed; right: 16px; bottom: 16px; z-index: 40; border-radius: 999px; box-shadow: 0 4px 12px rgba(0, 0, 0, .18); }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #059669; outline-offset: 2px; }
+.theme-bad18 button:focus-visible, .theme-bad18 a:focus-visible, .theme-bad18 summary:focus-visible { outline-color: #dc2626; }
+.theme-dark button:focus-visible, .theme-dark a:focus-visible, .theme-dark input:focus-visible, .theme-dark select:focus-visible, .theme-dark summary:focus-visible { outline-color: #38bdf8; }
+.del-pend { background-color: #dc2626 !important; border-color: #dc2626 !important; color: #ffffff !important; }
+`;
 /* ---------- thème « dark » : fond bleu nuit — textes de contenu en
    bleu ciel (au lieu du vert), notes et explications en gris moyen ;
    bulles d'alerte/notifications et pastilles (attb-*, marges) inchangées :
@@ -1057,6 +1082,11 @@ function App() {
   const [vueTab, setVueTab] = useState("planning");
   // tableau de bord statistique : affiché/masqué par le bouton dédié
   const [showStats, setShowStats] = useState(false);
+  // UX : suppression en deux clics — 1er clic arme le bouton (« Confirmer ✕ ? »),
+  // 2ᵉ clic exécute ; toute action structurelle réinitialise l'état
+  const [confirmDel, setConfirmDel] = useState(null);
+  // UX : état « toutes les notes dépliées » du bouton Tout déplier / Tout replier
+  const [notesAllOpen, setNotesAllOpen] = useState(false);
   // suivi en direct : matchs cochés « terminé » et « W.O. » (forfaits) —
   // un W.O. replanifie la journée sans consommer de créneau terrain
   const [live, setLive] = useState(false);
@@ -1069,21 +1099,21 @@ function App() {
 
   const joursActifs = daySort(Object.keys(jours).filter((j) => jours[j].actif));
 
-  const majTab = (i, champ, v) => setTabs((prev) => prev.map((t, k) => (k === i ? { ...t, [champ]: v } : t)));
-  const supprTab = (i) => setTabs((prev) => prev.filter((_, k) => k !== i));
-  const ajoutTab = () => setTabs((prev) => [...prev, { disc: "SM", classement: "", nb: 9, qualifs: 2, jour: "samedi", format: "", rondes: "" }]);
+  const majTab = (i, champ, v) => { setConfirmDel(null); setTabs((prev) => prev.map((t, k) => (k === i ? { ...t, [champ]: v } : t))); };
+  const supprTab = (i) => { setConfirmDel(null); setTabs((prev) => prev.filter((_, k) => k !== i)); };
+  const ajoutTab = () => { setConfirmDel(null); setTabs((prev) => [...prev, { disc: "SM", classement: "", nb: 9, qualifs: 2, jour: "samedi", format: "", rondes: "" }]); };
   // jours supplémentaires (au-delà de samedi et dimanche, max 4 au total)
-  const ajoutJour = () => setJours((p) => {
+  const ajoutJour = () => { setConfirmDel(null); return setJours((p) => {
     if (Object.keys(p).length >= 4) return p;
     let n = 3;
     while (p["jour " + n] !== undefined) n++;
     return { ...p, ["jour " + n]: { actif: true, terrains: 8, debut: "08:30", fin: "18:00", dureeMatch: "", marge: "", finalesFin: false } };
-  });
-  const supprJour = (j) => setJours((p) => {
+  }); };
+  const supprJour = (j) => { setConfirmDel(null); setJours((p) => {
     const q = { ...p };
     delete q[j];
     return q;
-  });
+  }); };
 
   /* ---------- configurations enregistrées ---------- */
   const snapshot = () => ({
@@ -1110,6 +1140,7 @@ function App() {
     setCfgName("");
   };
   const delCfg = (nom) => {
+    setConfirmDel(null);
     const o = { ...cfgStore.read() };
     delete o[nom];
     cfgStore.write(o);
@@ -1141,6 +1172,42 @@ function App() {
   const cardCls = "rounded-xl border border-emerald-100 bg-white p-4 shadow-sm";
   const numCls = "w-20 rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none";
 
+  /* ---------- UX : validation en direct, estimation live, notes ---------- */
+  // déplier/replier toutes les notes de la page en un clic (les <details>
+  // natifs sont pilotés directement : l'état individuel de chaque note
+  // est conservé par le navigateur)
+  const toggleAllNotes = () => {
+    const els = document.querySelectorAll("details.note");
+    const anyClosed = Array.prototype.some.call(els, (d) => !d.open);
+    Array.prototype.forEach.call(els, (d) => { d.open = anyClosed; });
+    setNotesAllOpen(anyClosed);
+  };
+  // estimation live du nombre de matchs des tableaux courants (poules + suite)
+  const besoinEstime = useMemo(() => tabs.reduce((s, t) => {
+    const b = buildTab(t, 0);
+    return s + b.poolMs.length + b.playedFinals.length;
+  }, 0), [tabs]);
+  // validation en direct : horaires, bornes de terrains, pause — affichée
+  // en bannière ambrée ; ne bloque pas la génération (le moteur borne)
+  const warnCfg = useMemo(() => {
+    const w = [];
+    const jkeys = daySort(Object.keys(jours));
+    jkeys.forEach((j) => {
+      const J = jours[j];
+      if (!J.actif) return;
+      const d = toMin(J.debut, null), f = toMin(J.fin, null);
+      if (d !== null && f !== null && f <= d) w.push("⚠️ " + j + " : la fin (" + J.fin + ") est avant ou égale au début (" + J.debut + ")");
+      const terr = +J.terrains;
+      if (!(terr >= 1 && terr <= 16)) w.push("⚠️ " + j + " : " + J.terrains + " terrain(s) — borne appliquée au calcul : 1 à 16");
+      const pd = toMin(J.pauseDebut, null), pf = toMin(J.pauseFin, null);
+      if ((pd === null) !== (pf === null)) w.push("⚠️ " + j + " : pause incomplète (renseignez le début et la fin, ou videz les deux)");
+      else if (pd !== null && pf !== null && pf <= pd) w.push("⚠️ " + j + " : la fin de pause est avant son début");
+    });
+    if (!jkeys.some((j) => jours[j].actif)) w.push("⚠️ Aucun jour actif : ajoutez ou réactivez au moins un jour");
+    if (!tabs.length) w.push("⚠️ Aucun tableau : ajoutez au moins un tableau");
+    return w;
+  }, [jours, tabs]);
+
   /* ---------- écran configuration ---------- */
   if (phase === "config") {
     return (
@@ -1149,6 +1216,7 @@ function App() {
         <style>{THEME_DARK_CSS}</style>
         <style>{ATT_CSS}</style>
         <style>{NOTE_CSS}</style>
+        <style>{UX_CSS}</style>
         <div className={cardCls}>
           <div className="flex items-center gap-3">
             <Bad18Logo size={52} />
@@ -1170,15 +1238,35 @@ function App() {
           </Note>
         </div>
 
-        <h3 className="font-semibold text-emerald-900">🗓️ Jours du tournoi</h3>
+        {/* UX : navigation rapide par ancres + tout déplier/replier les notes */}
+        <nav className="quicknav no-print" aria-label="Accès rapide">
+          <a href="#sec-jours">🗓️ Jours</a>
+          <a href="#sec-parametres">⚙️ Paramètres</a>
+          <a href="#sec-configs">💾 Configurations</a>
+          <a href="#sec-estimation">📊 Estimation</a>
+          <a href="#sec-tableaux">📋 Tableaux</a>
+          <button type="button" title="déplier ou replier toutes les notes de la page" onClick={toggleAllNotes}>{notesAllOpen ? "ℹ️ Tout replier" : "ℹ️ Tout déplier"}</button>
+        </nav>
+        {warnCfg.length > 0 && (
+          <div className="no-print rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <b>Vérification de la configuration</b>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+              {warnCfg.map((w) => <li key={w}>{w}</li>)}
+            </ul>
+            <div className="mt-1 text-[11px]">Ces points ne bloquent pas la génération : le moteur borne les valeurs, mais corrigez-les pour un échéancier fidèle.</div>
+          </div>
+        )}
+
+        <h3 id="sec-jours" className="font-semibold text-emerald-900">🗓️ Jours du tournoi</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           {daySort(Object.keys(jours)).map((j) => (
             <div key={j} className={cardCls}>
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="font-semibold capitalize text-emerald-900">{j}</h4>
                 <div className="flex items-center gap-2">
-                  {j !== "samedi" && j !== "dimanche" && (
-                    <button className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50" onClick={() => supprJour(j)}>✕</button>
+                  {j !== "samedi" && j !== "dimanche" && (confirmDel === "jour:" + j
+                    ? <button className="del-pend rounded-lg px-2 py-1 text-xs" title="2ᵉ clic : confirmer la suppression" onClick={() => { supprJour(j); }}>Confirmer ✕ ?</button>
+                    : <button className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50" title="1er clic : armer la suppression · 2ᵉ clic : confirmer" onClick={() => setConfirmDel("jour:" + j)}>✕</button>
                   )}
                   <label className="flex cursor-pointer items-center gap-2 text-sm text-emerald-800">
                     <input type="checkbox" checked={jours[j].actif} onChange={(e) => setJours((p) => ({ ...p, [j]: { ...p[j], actif: e.target.checked } }))} />
@@ -1256,7 +1344,7 @@ function App() {
           naturellement tardifs restent tenus en fin de journée.
         </p>
 
-        <div className={cardCls}>
+        <div id="sec-parametres" className={cardCls}>
           <h4 className="mb-2 font-semibold text-emerald-900">⚙️ Paramètres communs</h4>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
@@ -1318,7 +1406,7 @@ function App() {
         </div>
 
         {/* Configurations enregistrées : sauver, recharger, exporter, importer */ }
-        <div className={cardCls}>
+        <div id="sec-configs" className={cardCls}>
           <h4 className="mb-2 font-semibold text-emerald-900">💾 Configurations enregistrées</h4>
           <Note label="Configurations enregistrées">
           <p className="mb-2 text-xs text-emerald-600">
@@ -1344,7 +1432,9 @@ function App() {
                   <span className="font-medium">{nom}</span>
                   <span className="text-xs text-emerald-600">{configs[nom].tabs ? configs[nom].tabs.length : 0} tableau(x) · {configs[nom].jours ? Object.keys(configs[nom].jours).length : 0} jour(s)</span>
                   <button className="rounded-lg border border-emerald-300 px-2 py-1 text-xs text-emerald-800 hover:bg-emerald-50" onClick={() => applyCfg(configs[nom])}>Charger</button>
-                  <button className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50" onClick={() => delCfg(nom)}>Supprimer</button>
+                  {confirmDel === "cfg:" + nom
+                    ? <button className="del-pend rounded-lg px-2 py-1 text-xs" title="2ᵉ clic : confirmer la suppression" onClick={() => delCfg(nom)}>Confirmer ✕ ?</button>
+                    : <button className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50" title="1er clic : armer la suppression · 2ᵉ clic : confirmer" onClick={() => setConfirmDel("cfg:" + nom)}>Supprimer</button>}
                 </li>
               ))}
             </ul>
@@ -1402,7 +1492,7 @@ function App() {
             };
           });
           return (
-            <div className={cardCls}>
+            <div id="sec-estimation" className={cardCls}>
               <h4 className="mb-2 font-semibold text-emerald-900">📊 Estimation de capacité (matchs jouables)</h4>
               <table className="w-full text-sm">
                 <thead>
@@ -1473,7 +1563,7 @@ function App() {
           );
         })()}
 
-        <h3 className="font-semibold text-emerald-900">📋 Tableaux (discipline × classement)</h3>
+        <h3 id="sec-tableaux" className="font-semibold text-emerald-900">📋 Tableaux (discipline × classement)</h3>
         <div className="space-y-3">
           {tabs.map((t, i) => {
             const b = buildTab(t, i);
@@ -1528,7 +1618,9 @@ function App() {
                       <option value="les-deux">Les deux</option>
                     </select>
                   </div>
-                  <button className="ml-auto rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50" onClick={() => supprTab(i)}>✕ Retirer</button>
+                  {confirmDel === "tab:" + i
+                    ? <button className="del-pend ml-auto rounded-lg px-3 py-1.5 text-sm" title="2ᵉ clic : confirmer la suppression" onClick={() => supprTab(i)}>Confirmer ✕ ?</button>
+                    : <button className="ml-auto rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50" title="1er clic : armer la suppression · 2ᵉ clic : confirmer" onClick={() => setConfirmDel("tab:" + i)}>✕ Retirer</button>}
                 </div>
                 <p className="mt-2 text-xs text-emerald-600">
                   <b>{b.label}</b> — {b.suisse && <span>ronde suisse : {b.rondes} ronde{b.rondes > 1 ? "s" : ""} × {b.parRonde} match{b.parRonde > 1 ? "s" : ""}
@@ -1560,9 +1652,16 @@ function App() {
         </div>
         <button className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-50" onClick={ajoutTab}>＋ Ajouter un tableau</button>
 
-        <button className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white shadow hover:bg-emerald-700" onClick={() => { saveCfg(CFG_AUTO); setPhase("tournoi"); setVueTab("synthese"); }}>
+        <button id="sec-generer" className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white shadow hover:bg-emerald-700" onClick={() => { saveCfg(CFG_AUTO); setPhase("tournoi"); setVueTab("synthese"); }}>
           Générer l'échéancier 🏸
         </button>
+
+        {/* UX : barre d'action collante — toujours visible, estimation live */}
+        <div className="actbar no-print">
+          <button className="rounded-xl bg-emerald-600 px-5 py-2.5 font-semibold text-white shadow hover:bg-emerald-700" onClick={() => { saveCfg(CFG_AUTO); setPhase("tournoi"); setVueTab("synthese"); }}>Générer l'échéancier 🏸</button>
+          <span className="est" title="matchs estimés (poules + tableaux finaux) des tableaux et jours actuels">≈ {besoinEstime} matchs · {tabs.length} tableau(x) · {joursActifs.length} jour(s) actif(s)</span>
+          {warnCfg.length > 0 && <span className="text-xs font-semibold text-amber-700" title="voir la bannière « Vérification de la configuration »">⚠️ {warnCfg.length} point(s) à vérifier</span>}
+        </div>
       </div>
     );
   }
@@ -1626,6 +1725,7 @@ function App() {
       <style>{THEME_DARK_CSS}</style>
       <style>{ATT_CSS}</style>
       <style>{NOTE_CSS}</style>
+      <style>{UX_CSS}</style>
       <style>{PRINT_CSS}</style>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-emerald-900">🏸 Échéancier du week-end</h1>
@@ -1637,6 +1737,7 @@ function App() {
           <button className="rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50" title="imprime la vue courante ou enregistrez-la en PDF" onClick={() => window.print()}>🖨️ PDF / Imprimer</button>
           <button className="rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50" onClick={() => setPhase("config")}>⚙️ Modifier la configuration</button>
           <button className={showStats ? "rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white" : "rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50"} title="afficher/masquer le tableau de bord statistique du tournoi : inscrits, paires, matchs, durées, attentes, occupation des terrains" onClick={() => setShowStats((v) => !v)}>📊 Statistiques</button>
+          <button className="rounded-lg border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 hover:bg-emerald-50" title="déplier ou replier toutes les notes de la page" onClick={toggleAllNotes}>{notesAllOpen ? "ℹ️ Tout replier" : "ℹ️ Tout déplier"}</button>
         </div>
       </header>
       {live && (
@@ -1799,7 +1900,7 @@ function App() {
         </div>
       )}
 
-      <div className="no-print flex flex-wrap gap-1 rounded-xl border border-emerald-100 bg-white p-1 shadow-sm">
+      <div className="no-print sticky top-1 z-20 flex flex-wrap gap-1 rounded-xl border border-emerald-100 bg-white p-1 shadow-sm">
         {jourKeys.map((k) => (
           <button key={k} onClick={() => setVueTab(k)}
             className={"rounded-lg px-3 py-2 text-sm font-medium " + (vueTab === k ? "bg-emerald-600 text-white" : "text-emerald-800 hover:bg-emerald-50")}>
@@ -2098,6 +2199,9 @@ function App() {
           </div>
         );
       })()}
+
+      {/* UX : bouton flottant retour en haut de page */}
+      <button className="backtop no-print bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" title="remonter en haut de la page" onClick={() => window.scrollTo(0, 0)}>↑</button>
 
       <footer className="pb-4 text-center text-xs text-emerald-600">
         {total} matchs planifiés — appel {APPEL} min avant le match, {REPOS} min de repos minimum après le dernier match,
