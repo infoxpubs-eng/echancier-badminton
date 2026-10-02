@@ -1,10 +1,35 @@
----
-name: "badminton-echancier"
-title: "Échéancier Tournoi de Badminton"
-type: "react"
----
-
-import React, { useMemo, useState } from "react";
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Échéancier Tournoi de Badminton</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// message de repli : si React/Babel (CDN) n'ont pas pu être chargés —
+// aperçu du canvas (scripts externes bloqués) ou navigateur hors ligne.
+window.addEventListener("load", function () {
+  if (typeof React !== "undefined" && typeof ReactDOM !== "undefined" && typeof Babel !== "undefined") return;
+  document.getElementById("root").innerHTML =
+    '<div style="max-width:34rem;margin:3rem auto;padding:1.5rem;border:1px solid #a7f3d0;border-radius:0.75rem;background:#f0fdf4;font-family:system-ui,sans-serif;color:#065f46">' +
+    '<h2 style="margin:0 0 0.5rem;font-size:1.15rem;color:#065f46">⚠️ Cette version web ne démarre pas ici</h2>' +
+    '<p style="margin:0.25rem 0">Elle charge React et Tailwind depuis internet (unpkg.com, cdn.tailwindcss.com). Ces scripts externes sont bloqués dans cet aperçu — et hors connexion.</p>' +
+    '<p style="margin:0.75rem 0 0.25rem"><strong>Téléchargez le fichier</strong> puis ouvrez-le dans un navigateur connecté.</p>' +
+    '<p style="margin:0.25rem 0">Sans internet, utilisez la <strong>version hors-ligne</strong> (badminton-echancier-offline), qui ne dépend d\u2019aucune connexion.</p>' +
+    '</div>';
+});
+</script>
+<script type="text/babel" data-presets="react">
+const { useMemo, useState } = React;
 
 /* ============================================================
    Échéancier prédictif de tournoi de badminton (week-end)
@@ -1039,7 +1064,7 @@ function Note({ label, children }) {
     </details>
   );
 }
-export default function App() {
+function App() {
   const [phase, setPhase] = useState("config");
   const [dureeMatch, setDureeMatch] = useState(28);
   const [marge, setMarge] = useState(0);
@@ -2187,3 +2212,8 @@ export default function App() {
     </div>
   );
 }
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

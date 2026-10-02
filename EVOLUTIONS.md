@@ -429,16 +429,45 @@ de 20 min.
 
 ---
 
+## 2026-10-02 — Lot 14 : révision UX/UI (v2.0-rc, en test)
+
+- **Demande** : revoir toute l'UX/UI pour une manipulation plus
+  ergonomique et intuitive, et proposer une version en test publiée
+  avant promotion.
+- **Réponse** : sept améliorations livrées dans les trois versions —
+  barre d'ancres rapide (Jours/Paramètres/Configurations/Estimation/
+  Tableaux), bouton global « Tout déplier / Tout replier » les notes,
+  validation en direct (bannière ambrée : fin < début, terrains hors
+  bornes, pause incomplète/inversée, aucun jour actif, aucun tableau),
+  barre d'action collante « Générer » avec estimation live du nombre
+  de matchs, suppression en deux clics (1ᵉʳ clic arme « Confirmer ✕ ? »,
+  2ᵉ confirme, toute mutation désarme — API `supprTab`/`supprJour`/
+  `supprCfg` inchangée pour les tests), onglets collants + bouton
+  flottant retour en haut à l'écran tournoi, anneaux `focus-visible`
+  par thème.
+- **Publication** : version de test sous `/ux-test/` (web + hors-ligne)
+  ; la production v1.10 reste la racine jusqu'à validation — la
+  promotion consistera à régénérer `index.html` et `app/` depuis les
+  mêmes sources.
+- **Hors périmètre** : moteur, métriques, palette (pastilles, chips,
+  bulles d'alerte) — inchangés.
+- **Tests** : nouveau `ux-test.js` (16ᵉ fichier, 28 contrôles :
+  ancres, estimation 350, bannières de validation, armement/confirmation
+  des trois suppressions, désarmement par mutation, retour en haut,
+  onglets collants) — suite 16/16 verts.
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation
 dans les trois versions (app React, web, hors-ligne) → régénération web
 (`tests/regen-web.sh`) → suite complète de tests (`tests/`) → CHANGELOG →
-commit descriptif → push. La suite compte 15 fichiers de test (dont
+commit descriptif → push. La suite compte 16 fichiers de test (dont
 `presets-test.js` depuis la v1.5, `byes-test.js` depuis la v1.5.1 —
 étendu en v1.6 pour l'ordre strict des tours —, `ordre-jours-test.js`
-depuis la v1.7, `itb7-test.js` depuis la v1.8 et `stats-test.js`
-depuis la v1.9). Les métriques de
+depuis la v1.7, `itb7-test.js` depuis la v1.8, `stats-test.js`
+depuis la v1.9 et `ux-test.js` depuis la v2.0-rc). Les métriques de
 référence depuis
 la v1.6 (base 350 matchs : att60 = 75, max 112, moy 51 ; finalesFin
 77/112/52 ; poules→demis ≤ 150 min) servent de garde-fous de régression.

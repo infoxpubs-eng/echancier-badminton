@@ -19,6 +19,7 @@ Tous les tests s'exécutent depuis la racine du dépôt : `node tests/<fichier>`
 | `exempts-scroll-test.js` | exempts (effectif impair) + conservation du défilement |
 | `metrics.js` | métriques de référence (350 matchs, att60/attMax/attMoy, poules→demis ≤ 150) |
 | `web-check.js` | compilation JSX + exécution de la version web (voir dépendances ci-dessous) |
+| `ux-test.js` | UX v2.0-rc (hors-ligne) : ancres de navigation rapide, estimation live (350), bannière de validation en direct (fin < début, terrains hors bornes, pause incomplète), suppression en deux clics (armement « Confirmer ✕ ? » puis confirmation, désarmement par mutation), onglets collants, bouton retour en haut, « Tout déplier » |
 
 ### Dépendances de `web-check.js`
 

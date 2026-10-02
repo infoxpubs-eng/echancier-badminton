@@ -436,6 +436,40 @@ d'échéancier épurées). La couleur de la poignée suit le thème
 (classique vert, Bad18 rouge, dark bleu ciel). Aucun changement du
 moteur ni des métriques de référence — suite 15/15 verts.
 
+## 2026-10-02 — v2.0-rc (UX) : révision ergonomique — version de test
+
+Révision complète de l'UX/UI, publiée **en test** sous `/ux-test/`
+(la production en v1.10 reste inchangée jusqu'à validation) :
+
+1. **Barre de navigation rapide** (écran configuration) : ancres
+   « Jours · Paramètres · Configurations · Estimation · Tableaux »
+   collantes en haut de page, toujours accessibles.
+2. **Bouton « Tout déplier / Tout replier »** les notes de la page
+   (écrans configuration et tournoi) — en complément du dépliage
+   individuel de la v1.10.
+3. **Validation en direct de la configuration** : bannière ambrée
+   listant les incohérences (fin avant le début, terrains hors bornes
+   1-16, pause incomplète ou inversée, aucun jour actif, aucun
+   tableau) — rien n'est bloqué, le moteur borne toujours, mais les
+   points sont signalés avant génération.
+4. **Barre d'action collante** en bas de l'écran configuration :
+   bouton « Générer l'échéancier » toujours visible + estimation
+   live « ≈ N matchs · N tableaux · N jours actifs » et compteur de
+   points à vérifier.
+5. **Suppression en deux clics** (jour, tableau, configuration) :
+   le 1ᵉʳ clic arme le bouton (« Confirmer ✕ ? » en rouge), le 2ᵉ
+   confirme ; toute autre action désarme — plus de suppression par
+   inadvertance.
+6. **Écran tournoi** : barre d'onglets collante (Synthèse, Planning,
+   Par classement, par tableau) + bouton flottant « ↑ » retour en
+   haut de page.
+7. **Anneaux de focus visibles** au clavier (focus-visible) sur
+   boutons, champs et poignées de notes, adaptés à chaque thème.
+
+Aucun changement du moteur, des métriques ni de la palette (pastilles
+d'attente, chips de marge, bulles d'alerte). Nouveau test `ux-test.js`
+(16ᵉ fichier, 28 contrôles) ; suite 16/16 verts.
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :
