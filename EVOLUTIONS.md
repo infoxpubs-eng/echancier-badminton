@@ -404,6 +404,31 @@ de 20 min.
 
 ---
 
+## 2026-10-02 — Lot 13 : notes dépliables (v1.10)
+
+- **Demande** : masquer tous les textes explicatifs, notes et
+  informations ; pouvoir en lire une en la dépliant.
+- **Réponse** : chaque note devient une poignée « ℹ️ + libellé » à
+  bordure pointillée qui se déplie d'un clic (`<details>`/`<summary>`
+  natifs, aucune donnée d'état). Couverture : écran configuration
+  (fonctionnement, journée, repos/appel, marge de sécurité, explication
+  des combinaisons toxiques — la case à cocher reste visible —,
+  demis/finales, configurations enregistrées, estimation de capacité,
+  tableaux sur deux jours, détail par tableau hors-ligne) et écran
+  tournoi (légende des attentes, notes du tableau de bord statistique,
+  parcours, vue par classement).
+- **Hors périmètre** : bulles d'alerte/notifications (⚠️ / ✅), cartes
+  d'indicateurs, libellés de saisie, contenus des vues — inchangés.
+- **Impression/PDF** : les notes repliées n'apparaissent pas.
+- **Thèmes** : poignée verte (classique), rouge (Bad18), bleu ciel
+  (dark) — même mécanique que v1.9.1.
+- **Tests** : aucun nouveau fichier (UI pure) — suite 15/15 verts,
+  dont les 15 840 + 19 012 cas de rendu et les 95 contrôles hors-ligne
+  (les textes des notes restent présents dans le DOM, simplement
+  repliés).
+
+---
+
 ## Procédé de mise à jour
 
 Chaque évolution suit le même circuit : demande consignée → implémentation

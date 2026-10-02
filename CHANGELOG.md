@@ -413,6 +413,29 @@ invariante entre thèmes (vérifiée par `presets-test`, 21/21). Le
 comportement des boutons primaires en dark est aligné entre versions
 (vert #059669). Aucun changement du mode classique. Suite 15/15 verts.
 
+## 2026-10-02 — Notes et explications dépliables (v1.10)
+
+Tous les textes explicatifs, notes et informations sont désormais
+**masqués par défaut** dans les trois versions (web, React, hors-ligne) :
+chacun est remplacé par une poignée discrète « ℹ️ + libellé » à bordure
+en pointillés, qui se déplie d'un clic (élément natif `<details>`/
+`<summary>`, une note à la fois, cliquer à nouveau pour la replier).
+
+Notes concernées (écran configuration : fonctionnement, journée,
+repos/appel, marge de sécurité, combinaisons toxiques — la case à
+cocher reste visible, seule l'explication est repliée —, demis et
+finales × 2, configurations enregistrées, lecture de l'estimation,
+tableaux sur deux jours, détail de chaque tableau hors-ligne ; écran
+tournoi : légende des attentes, notes du tableau de bord statistique,
+parcours, vue par classement).
+
+Inchangés : bulles d'alerte et notifications (⚠️ / ✅), cartes
+d'indicateurs, libellés de saisie et contenus de vues. Les notes
+repliées sont également **masquées à l'impression/PDF** (feuilles
+d'échéancier épurées). La couleur de la poignée suit le thème
+(classique vert, Bad18 rouge, dark bleu ciel). Aucun changement du
+moteur ni des métriques de référence — suite 15/15 verts.
+
 ## Feuille de route (mise à jour 2026-10-01)
 
 Demandes consignées (détail et analyse dans `EVOLUTIONS.md`, lot 6) :

@@ -66,6 +66,15 @@
   .dayhead { font-size: 1rem; color: var(--em-d); margin: 14px 0 8px; font-weight: 700; text-transform: capitalize; }
   .poolbox { border-radius: 10px; border: 1px solid #d1fae5; background: #f0fdf4; padding: 8px; font-size: .72rem; }
   .mut { color: #9ca3af; }
+  /* notes et explications dépliables : masquées par défaut, chacune
+     s'ouvre d'un clic (<details>/<summary> natifs) ; masquées à
+     l'impression/export PDF (classe no-print) */
+  .note { border: 1px dashed #a7f3d0; border-radius: 10px; margin: 6px 0; }
+  .note-sum { cursor: pointer; padding: 3px 10px; font-size: .72rem; font-weight: 700; color: #047857; list-style: none; user-select: none; }
+  .note-sum::-webkit-details-marker { display: none; }
+  .note-sum::after { content: " ▸"; }
+  .note[open] .note-sum::after { content: " ▾"; }
+  .note-body { padding: 2px 12px 8px; }
   /* impression / export PDF : masque les boutons et garde le contenu */
   @media print { .no-print { display: none !important; } body { background: #fff !important; } }
   .live-btn { border-radius: 8px; padding: 6px 10px; font-size: .72rem; font-weight: 700; cursor: pointer; border: 1px solid #a7f3d0; background: #fff; }
@@ -88,6 +97,8 @@
   body.theme-bad18 .ok { background: #fef2f2; border-color: #fca5a5; }
   body.theme-bad18 .poolbox { background: #fef2f2; border-color: #fecaca; }
   body.theme-bad18 .stat { border-color: #fecaca; }
+  body.theme-bad18 .note { border-color: #f87171; }
+  body.theme-bad18 .note-sum { color: #b91c1c; }
   /* ---------- thème « dark » (bleu nuit) — textes de contenu en bleu
      ciel (au lieu du vert), notes et explications en gris moyen ; bulles
      d'alerte/notifications (warn/ok) et pastilles d'attentes (ATT_STEPS,
@@ -128,6 +139,9 @@
   body.theme-dark [style*="color:#6ee7b7"]:not([style*="background"]) { color: #7dd3fc !important; }
   /* petites notes du tableau de bord statistique (vertes en classique) : gris moyen */
   body.theme-dark [style*="color:#10b981"]:not([style*="background"]) { color: #94a3b8 !important; }
+  /* notes dépliables : poignée bleu ciel en dark */
+  body.theme-dark .note { border-color: #33517a; }
+  body.theme-dark .note-sum { color: #38bdf8; }
 </style>
 </head>
 <body>
@@ -1069,6 +1083,11 @@ function computePlan(tabs, jours, dureeBrut, margeBrut, combosTox, finalesFin, f
 }
 
 /* ---------- rendu : configuration ---------- */
+/* note dépliable : texte explicatif masqué par défaut — « ℹ️ » + libellé
+   cliquable pour l'ouvrir, une note à la fois ; masquée à l'impression */
+function noteHtml(label, body) {
+  return '<details class="note no-print"><summary class="note-sum">ℹ️ ' + label + '</summary><div class="note-body">' + body + "</div></details>";
+}
 function renderConfig() {
   const jourCard = (j) => {
     const J = state.jours[j];
@@ -1101,7 +1120,7 @@ function renderConfig() {
           "<div><label title=\"aucun match n'est planifié pendant la pause ; vides = pas de pause\">Pause Déjeuner/Remise médailles — de</label><input type=\"time\" class='w100' placeholder=\"12:30\" value=\"" + (J.pauseDebut !== undefined ? J.pauseDebut : "") + "\" " + (J.actif ? "" : "disabled") + " onchange=\"App.setJour('" + j + "','pauseDebut',this.value)\"></div>" +
           "<div><label title=\"heure de reprise estimée après la pause\">à (reprise)</label><input type=\"time\" class='w100' placeholder=\"13:30\" value=\"" + (J.pauseFin !== undefined ? J.pauseFin : "") + "\" " + (J.actif ? "" : "disabled") + " onchange=\"App.setJour('" + j + "','pauseFin',this.value)\"></div>" +
         "</div>" +
-        '<div style="font-size:.62rem;color:#9ca3af;margin-top:6px">Terrains : min 1 · max 16 · durée et marge vides = valeurs communes · pause (Déjeuner/Remise médailles) vide = pas de pause (heure estimée usuelle : 12:30 → 13:30).</div>' +
+        noteHtml("Journée", '<div style="font-size:.62rem;color:#9ca3af">Terrains : min 1 · max 16 · durée et marge vides = valeurs communes · pause (Déjeuner/Remise médailles) vide = pas de pause (heure estimée usuelle : 12:30 → 13:30).</div>') +
       "</div>" +
     "</div>";
   };
@@ -1130,7 +1149,7 @@ function renderConfig() {
           jourOpts + "</select></div>" +
         '<button class="btn-x xdel" onclick="App.supprTab(' + i + ')">✕ Retirer</button>' +
       "</div>" +
-      '<p style="font-size:.75rem;color:var(--em);margin:10px 0 0"><b>' + esc(b.label) + "</b> — " +
+      noteHtml("Détail du tableau", '<p style="font-size:.75rem;color:var(--em);margin:0"><b>' + esc(b.label) + "</b> — " +
       (b.suisse
         ? "ronde suisse : " + b.rondes + " ronde" + (b.rondes > 1 ? "s" : "") + " × " + b.parRonde + " match" + (b.parRonde > 1 ? "s" : "") + " (" + (b.n % 2 === 1 ? "1 exempt par ronde · " : "") + b.poolMs.length + " matchs au total)" +
           (b.seule ? " — classement final aux victoires puis départages" : " — " + b.Q + " qualifié(s) → élimination directe (" + b.playedFinals.length + " matchs de tableau final" + exemptsTxt(b) + ")")
@@ -1139,22 +1158,22 @@ function renderConfig() {
         : b.P === 1
         ? "poule unique de " + b.n + " " + b.unit + " — " + b.poolMs.length + " matchs, classement final de la poule : pas de sortants ni de suite en élimination directe (le champ « Sortants/poule » ne s'applique pas)."
         : b.P + " poule(s) : " + b.sizes.join(" + ") + " " + b.unit + " (" + b.poolMs.length + " matchs de poule), " + (b.P * b.Q) + " qualifiés, " + b.playedFinals.length + " matchs de tableau final" + exemptsTxt(b) + ".") +
-      (t.jour !== "les-deux" && state.jours[t.jour] && !state.jours[t.jour].actif ? " ⚠️ " + t.jour + " inactif" : "") + cutInfo + "</p>" +
+      (t.jour !== "les-deux" && state.jours[t.jour] && !state.jours[t.jour].actif ? " ⚠️ " + t.jour + " inactif" : "") + cutInfo + "</p>") +
     "</div>";
   };
   return '<div style="max-width:920px;margin:0 auto">' +
     '<div class="card" style="margin-bottom:16px">' +
       '<div style="display:flex;align-items:center;gap:12px">' + BAD18_LOGO + "<h1>🏸 Échéancier Tournoi de Badminton</h1></div>" +
-      '<p style="font-size:.85rem;color:var(--em)">Paramétrage de base : 5 tableaux par catégorie (« Série 1 » à « Série 5 »), 9 joueurs ou paires par défaut, sans tableaux intergenre (ajoutables manuellement). Convention : simples et mixte le samedi, doubles le dimanche. Les poules (3-5) sont composées automatiquement pour minimiser le nombre de matchs ; au-delà de 24 inscrits, élimination directe. Aucun nom à saisir. L\'échéancier démarre ensuite les tableaux progressivement — les séries aux tours les plus nombreux d\'abord, les suivantes au fil des créneaux libérés — et alterne les matchs pour minimiser l\'attente, avec ' + REPOS + " min de repos minimum et " + APPEL + " min d'appel.</p>" +
+      noteHtml("Fonctionnement", '<p style="font-size:.85rem;color:var(--em)">Paramétrage de base : 5 tableaux par catégorie (« Série 1 » à « Série 5 »), 9 joueurs ou paires par défaut, sans tableaux intergenre (ajoutables manuellement). Convention : simples et mixte le samedi, doubles le dimanche. Les poules (3-5) sont composées automatiquement pour minimiser le nombre de matchs ; au-delà de 24 inscrits, élimination directe. Aucun nom à saisir. L\'échéancier démarre ensuite les tableaux progressivement — les séries aux tours les plus nombreux d\'abord, les suivantes au fil des créneaux libérés — et alterne les matchs pour minimiser l\'attente, avec ' + REPOS + " min de repos minimum et " + APPEL + " min d'appel.</p>") +
     "</div>" +
     "<h3>🗓️ Jours du tournoi</h3>" +
     '<div class="grid2" style="margin-bottom:10px">' + daySort(Object.keys(state.jours)).map(jourCard).join("") + "</div>" +
     '<button class="btn btn-o" style="margin-bottom:6px"' + (Object.keys(state.jours).length >= 4 ? " disabled" : "") + ' onclick="App.ajoutJour()">＋ Ajouter un jour</button>' +
-    '<p style="font-size:.72rem;color:var(--em);margin:0 0 16px">« Demis et finales en fin de journée » est propre à chaque jour : les demis et finales des tableaux sont programmées en fin de journée pour enchaîner la remise des prix — mais si un tableau attendrait plus de 2h30 après la fin de ses propres poules, ses tours finals avancent dès que possible. Les tableaux démarrés tardivement ou aux tours naturellement tardifs restent tenus en fin de journée. Durée et marge laissées vides = valeurs communes.</p>' +
+    noteHtml("Demis et finales en fin de journée", '<p style="font-size:.72rem;color:var(--em);margin:0">« Demis et finales en fin de journée » est propre à chaque jour : les demis et finales des tableaux sont programmées en fin de journée pour enchaîner la remise des prix — mais si un tableau attendrait plus de 2h30 après la fin de ses propres poules, ses tours finals avancent dès que possible. Les tableaux démarrés tardivement ou aux tours naturellement tardifs restent tenus en fin de journée. Durée et marge laissées vides = valeurs communes.</p>') +
     '<div class="card" style="margin-bottom:16px"><h3>⚙️ Paramètres communs</h3>' +
       "<div class='row'><div><label>Durée moyenne d'un match (min, min 28)</label><input type='number' min='28' max='90' class='w80' value='" + state.dureeMatch + "' onchange=\"App.setNum('dureeMatch',this.value)\"></div>" +
       "<div><label>Marge de sécurité par match (min, 0–20)</label><input type='number' min='0' max='20' class='w80' value='" + state.marge + "' onchange=\"App.setNum('marge',this.value)\"></div>" +
-      '<div style="font-size:.75rem;color:var(--em);padding-bottom:8px">Repos minimum : ' + REPOS + " min après la fin d'un match · Appel : " + APPEL + " min avant chaque match</div>" +
+      noteHtml("Repos et appel", '<div style="font-size:.75rem;color:var(--em)">Repos minimum : ' + REPOS + " min après la fin d'un match · Appel : " + APPEL + " min avant chaque match</div>") +
       "<div><label>Thème d'affichage</label><select class='w130' onchange=\\\"App.setTheme(this.value)\\\">" +
         "<option value='classique' " + (state.theme === "classique" ? "selected" : "") + ">Classique (vert)</option>" +
         "<option value='bad18' " + (state.theme === "bad18" ? "selected" : "") + ">Bad18 (rouge et noir)</option>" +
@@ -1165,9 +1184,9 @@ function renderConfig() {
         "<option value='0.5' " + (state.cadence === 0.5 ? "selected" : "") + ">Resserrée — battement régulier entre les tours d'une même poule</option>" +
         "<option value='1' " + (state.cadence === 1 ? "selected" : "") + ">Vagues strictes — le tour r d'un tableau démarre après la fin du tour r-1 (type BadNet)</option>" +
       "</select></div></div>" +
-      "<p style='font-size:.72rem;color:var(--em);margin:6px 0 0'>La marge de sécurité est ajoutée à chaque match de l'échéancier théorique : si un match réel dépasse sa durée prévue (jusqu'à cette marge), les matchs suivants restent à l'heure et le repos réel ne descend jamais sous " + REPOS + " min. Au-delà, le respect du repos passe avant l'heure affichée : les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</p>" +
-      "<label style='display:flex;gap:8px;margin:12px 0 0;cursor:pointer;font-size:.85rem;color:var(--em-d)'><input type='checkbox' style='width:auto' " + (state.combosTox ? "checked" : "") + " onchange=\"App.setCombosTox(this.checked)\"><span><b>Autoriser les combinaisons toxiques</b> — par défaut, un joueur/paire n'est pas inscrit sur deux familles le même jour (ex. simple <i>et</i> mixte) : aucun chevauchement possible. Cochez cette option seulement si le dimensionnement du tournoi permet de telles combinaisons : l'échéancier sérialise alors les familles dans chaque journée (simples, puis mixte, puis doubles), pour qu'un joueur/paire ne soit jamais attendu sur deux familles à la fois.</span></label>" +
-      "<p style='font-size:.75rem;color:var(--em);margin:12px 0 0'><b>Demi-finales et finales en fin de journée</b> : cette option se règle désormais pour chaque jour (case à cocher dans la carte du jour ci-dessus).</p>" +
+      noteHtml("Marge de sécurité", "<p style='font-size:.72rem;color:var(--em);margin:0'>La marge de sécurité est ajoutée à chaque match de l'échéancier théorique : si un match réel dépasse sa durée prévue (jusqu'à cette marge), les matchs suivants restent à l'heure et le repos réel ne descend jamais sous " + REPOS + " min. Au-delà, le respect du repos passe avant l'heure affichée : les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</p>") +
+      "<label style='display:flex;gap:8px;margin:12px 0 0;cursor:pointer;font-size:.85rem;color:var(--em-d)'><input type='checkbox' style='width:auto' " + (state.combosTox ? "checked" : "") + " onchange=\"App.setCombosTox(this.checked)\"><span><b>Autoriser les combinaisons toxiques</b></span></label>" + noteHtml("Combinaisons toxiques", "<p style='font-size:.72rem;color:var(--em);margin:0'>Par défaut, un joueur/paire n'est pas inscrit sur deux familles le même jour (ex. simple <i>et</i> mixte) : aucun chevauchement possible. Cochez cette option seulement si le dimensionnement du tournoi permet de telles combinaisons : l'échéancier sérialise alors les familles dans chaque journée (simples, puis mixte, puis doubles), pour qu'un joueur/paire ne soit jamais attendu sur deux familles à la fois.</p>") +
+      noteHtml("Demis et finales", "<p style='font-size:.75rem;color:var(--em);margin:0'><b>Demi-finales et finales en fin de journée</b> : cette option se règle désormais pour chaque jour (case à cocher dans la carte du jour ci-dessus).</p>") +
     "</div>" +
     presetsCard() +
     estimationCard() +
@@ -1191,7 +1210,7 @@ function presetsCard() {
       "<button class='btn btn-x' style='padding:4px 10px;font-size:.75rem' onclick=\"App.supprCfg(" + i + ")\">Supprimer</button></div>";
   }).join("");
   return '<div class="card" style="margin-bottom:16px"><h3>💾 Configurations enregistrées</h3>' +
-    '<p style="font-size:.72rem;color:var(--em)">Sauvegardez une configuration de départ (jours, tableaux, durées, thème) pour y revenir ensuite ; exportez-la en JSON pour l\'archiver ou la transférer, puis réimportez-la. La configuration « Dernière (auto) » est mise à jour à chaque génération.</p>' +
+    noteHtml("Configurations enregistrées", '<p style="font-size:.72rem;color:var(--em)">Sauvegardez une configuration de départ (jours, tableaux, durées, thème) pour y revenir ensuite ; exportez-la en JSON pour l\'archiver ou la transférer, puis réimportez-la. La configuration « Dernière (auto) » est mise à jour à chaque génération.</p>') +
     "<div class='row' style='gap:8px;flex-wrap:wrap'>" +
       "<input type='text' id='cfgNom' placeholder=\"Nom de la configuration\" style='flex:1;min-width:170px'>" +
       "<button class='btn' onclick=\"App.saveCfg()\">Enregistrer</button>" +
@@ -1262,9 +1281,9 @@ function estimationCard() {
   const cutTxt = builtAll.filter((b) => cuts[b.tid]).map((b) => esc(b.label) + " : jour 2 à partir des " + cuts[b.tid].label.toLowerCase()).join(" · ");
   return '<div class="card" style="margin-bottom:16px"><h3>📊 Estimation de capacité (matchs jouables)</h3>' +
     '<table><thead><tr><th>Jour</th><th>Capacité</th><th title="besoin des tableaux affectés à CE jour uniquement — les tableaux « les deux jours » ne sont pas comptés ici (colonne suivante)">Besoin fixe</th><th>Les deux jours</th><th title="capacité − besoin fixe uniquement : les tableaux « les deux jours » n\'y sont pas déduits — ne pas s\'y fier pour savoir si la journée tient, voir « Marge réelle »">Marge</th><th title="matchs réellement planifiés avec les paramètres courants (repos et alternance inclus), y compris les matchs des tableaux « les deux jours » tombés sur ce jour">Planifié</th><th title="marge en minutes entre la fin réelle de la journée planifiée et l\'horaire de fermeture — négatif = le dernier match finit après la fermeture (rien n\'est supprimé)">Marge réelle</th></tr></thead><tbody>' + rows + "</tbody></table>" +
-    '<p style="font-size:.75rem;color:var(--em);margin:8px 0 0">Capacité d\'un jour = terrains × (horaire ouvert ÷ durée de match). Besoin total : <b>' + besoinTotal + "</b> matchs (poules + tableaux finaux), dont <b>" + besoinDeux + "</b> à répartir sur les deux jours, pour une capacité totale de <b>" + capTotal + "</b> matchs. La colonne « Marge » est <b>théorique</b> : elle suppose les terrains occupés en continu et ne déduit que le besoin <b>fixe</b> du jour — les tableaux « les deux jours » n'y sont pas comptés, alors qu'ils se planifient en partie chaque jour (visible dans « Planifié », suffixe « deux-jours »). La colonne « Marge réelle » est calculée sur la planification effective (repos de " + REPOS + " min, appel, alternance des tours et pauses inclus) : c\'est elle qui dit si la journée tient réellement — <b>une marge théorique positive ne garantit pas que tout se joue dans l\'horaire</b>. Une marge réelle négative signifie que le dernier match finit après la fermeture (ex. −201 min = fermeture 17:00, dernier match 20:21) : <b>aucun match n\'est supprimé</b>, le moteur planifie tout, même au-delà de l\'horaire, et l\'écran tournoi l\'affiche aussi (⚠️ horaire de fin modifié)." +
-    (realPlan.unscheduled.length > 0 ? " <b style='color:#b91c1c'>⚠️ " + realPlan.unscheduled.length + " match(s) non planifiable(s) avec ces paramètres.</b>" : "") + "</p>" +
-    (cutTxt ? '<p style="font-size:.75rem;color:var(--em-d);margin:6px 0 0">🔀 Tableaux sur deux jours — ' + cutTxt + " (décision automatique selon la capacité du jour 1).</p>" : "") +
+    noteHtml("Lecture de l'estimation", '<p style="font-size:.75rem;color:var(--em);margin:0">Capacité d\'un jour = terrains × (horaire ouvert ÷ durée de match). Besoin total : <b>' + besoinTotal + "</b> matchs (poules + tableaux finaux), dont <b>" + besoinDeux + "</b> à répartir sur les deux jours, pour une capacité totale de <b>" + capTotal + "</b> matchs. La colonne « Marge » est <b>théorique</b> : elle suppose les terrains occupés en continu et ne déduit que le besoin <b>fixe</b> du jour — les tableaux « les deux jours » n'y sont pas comptés, alors qu'ils se planifient en partie chaque jour (visible dans « Planifié », suffixe « deux-jours »). La colonne « Marge réelle » est calculée sur la planification effective (repos de " + REPOS + " min, appel, alternance des tours et pauses inclus) : c\'est elle qui dit si la journée tient réellement — <b>une marge théorique positive ne garantit pas que tout se joue dans l\'horaire</b>. Une marge réelle négative signifie que le dernier match finit après la fermeture (ex. −201 min = fermeture 17:00, dernier match 20:21) : <b>aucun match n\'est supprimé</b>, le moteur planifie tout, même au-delà de l\'horaire, et l\'écran tournoi l\'affiche aussi (⚠️ horaire de fin modifié)." +
+    (realPlan.unscheduled.length > 0 ? " <b style='color:#b91c1c'>⚠️ " + realPlan.unscheduled.length + " match(s) non planifiable(s) avec ces paramètres.</b>" : "") + "</p>") +
+    (cutTxt ? noteHtml("Tableaux sur deux jours", '<p style="font-size:.75rem;color:var(--em-d);margin:0">🔀 ' + cutTxt + " (décision automatique selon la capacité du jour 1).</p>") : "") +
     "</div>";
 }
 
@@ -1291,11 +1310,11 @@ function statsDashboardHtml(plan) {
       "<div class=\"stat\"><b>" + st.jeu.moyenneParEngagement + " min</b><span>durée moyenne de jeu par engagement</span><i>" + st.jeu.totalH + " h de jeu au total · " + st.jeu.matchsParEngagement + " matchs/engagement</i></div>" +
     "</div>" +
     '<div class="grid2">' +
-      "<div><h4>⏱️ Attentes (matchs)</h4><p style=\"margin:4px 0;font-size:.8rem\">moyenne " + attFmt(st.attentes.moy) + " · maximum " + attFmt(st.attentes.max) + " · " + st.attentes.sup60 + " ≥ 1h</p><p style=\"margin:4px 0\">" + paliers + "</p><p style=\"font-size:.75rem;color:#10b981\">vue joueurs/paires (repos " + REPOS + " min inclus) : moyenne " + attFmt(st.attentesJoueurs.moy) + " · max " + attFmt(st.attentesJoueurs.max) + " · " + st.attentesJoueurs.sup60 + " ≥ 1h</p></div>" +
+      "<div><h4>⏱️ Attentes (matchs)</h4><p style=\"margin:4px 0;font-size:.8rem\">moyenne " + attFmt(st.attentes.moy) + " · maximum " + attFmt(st.attentes.max) + " · " + st.attentes.sup60 + " ≥ 1h</p><p style=\"margin:4px 0\">" + paliers + "</p>" + noteHtml("Vue joueurs/paires", "<p style=\"font-size:.75rem;color:#10b981;\">vue joueurs/paires (repos " + REPOS + " min inclus) : moyenne " + attFmt(st.attentesJoueurs.moy) + " · max " + attFmt(st.attentesJoueurs.max) + " · " + st.attentesJoueurs.sup60 + " ≥ 1h</p>") + "</div>" +
       "<div><h4>🏸 Matchs par discipline</h4><p style=\"margin:4px 0\">" + disc + "</p></div>" +
     "</div>" +
     '<div style="overflow-x:auto;margin-top:10px"><table><thead><tr><th>Jour</th><th>Matchs</th><th>Poules</th><th>Finales</th><th>Créneau</th><th>Jeu</th><th>Occupation</th><th>Marge fin</th><th>Attente moy</th><th>Attente max</th><th>≥ 1h</th></tr></thead><tbody>' + jours + "</tbody></table></div>" +
-    "<p style=\"font-size:.75rem;color:#10b981;margin:8px 0 0\">Effectifs estimés à partir des engagements par tableau (joueurs anonymes : un même joueur engagé dans plusieurs tableaux est compté plusieurs fois). Les inscriptions réelles seront intégrées avec l'import des noms (suite E).</p>" +
+    noteHtml("Effectifs estimés", "<p style=\"font-size:.75rem;color:#10b981;\">Effectifs estimés à partir des engagements par tableau (joueurs anonymes : un même joueur engagé dans plusieurs tableaux est compté plusieurs fois). Les inscriptions réelles seront intégrées avec l'import des noms (suite E).</p>") +
     "</div>";
 }
 
@@ -1388,9 +1407,9 @@ function renderTournoi() {
     '<div class="tabs no-print" style="margin-bottom:14px">' +
       tabsBtns.map(([k, l]) => '<button class="tab ' + (state.vueTab === k ? "on" : "") + '" onclick="App.setVueTab(\'' + k + "')\">" + esc(l) + "</button>").join("") +
     "</div>" +
-    '<div class="card" style="margin-bottom:14px;font-size:.75rem;color:var(--em)"><b style="color:var(--em-d)">⏱ ATTENTE depuis le tour précédent</b> — attente totale depuis la fin du match précédent du joueur ou de la paire le plus attendu du match, repos de ' + REPOS + " min inclus : " +
+    noteHtml("Légende des attentes", '<div class="card" style="margin-bottom:0;font-size:.75rem;color:var(--em)"><b style="color:var(--em-d)">⏱ ATTENTE depuis le tour précédent</b> — attente totale depuis la fin du match précédent du joueur ou de la paire le plus attendu du match, repos de ' + REPOS + " min inclus : " +
       ATT_STEPS.map((s) => "<span class='attb' style='background:" + s.bg + ";color:" + s.fg + "'>" + s.lbl + "</span>").join(" ") +
-      " — plus c'est vert, plus le joueur/la paire enchaîne vite après son tour précédent ; orange à rouge = longue attente. Objectif : toutes les attentes < 1h. Colonne Attente : « — » = premier tour du joueur/de la paire (attente non applicable), badge « ≈ » = délai depuis la fin de la phase précédente du tableau (premier tour d'élimination directe issu des poules/rondes suisses). Colonne N° : numéro du match, de 1 à la fin du tournoi, identique dans toutes les vues et l'export CSV ; le tour du match est indiqué dans la colonne Tour. Les horaires sont donnés à titre indicatif : en cas de dépassement réel, le repos de " + REPOS + " min passe avant l'heure affichée — les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</div>" +
+      " — plus c'est vert, plus le joueur/la paire enchaîne vite après son tour précédent ; orange à rouge = longue attente. Objectif : toutes les attentes < 1h. Colonne Attente : « — » = premier tour du joueur/de la paire (attente non applicable), badge « ≈ » = délai depuis la fin de la phase précédente du tableau (premier tour d'élimination directe issu des poules/rondes suisses). Colonne N° : numéro du match, de 1 à la fin du tournoi, identique dans toutes les vues et l'export CSV ; le tour du match est indiqué dans la colonne Tour. Les horaires sont donnés à titre indicatif : en cas de dépassement réel, le repos de " + REPOS + " min passe avant l'heure affichée — les matchs suivants sont décalés, jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.</div>") +
     body +
     "<footer>" + total + " matchs planifiés — appel " + APPEL + " min avant le match, " + REPOS + " min de repos minimum après le dernier match, alternance optimisée pour minimiser l'attente (objectif < 1h). 2 sets gagnants de 15 points, écart de 2, plafond 21, échange de côté à 8. Horaires donnés à titre indicatif — le repos réel ne descend jamais sous " + REPOS + " min sans l'accord du juge-arbitre ou des joueurs/paires.</footer>" +
   "</div>";
@@ -1461,7 +1480,7 @@ function viewSynthese(plan, statsJour) {
     "<div style='font-size:.7rem;color:#94a3b8'>attente max " + s.attMax + " min · moyenne " + s.attMoy + " min</div></div>").join("");
   return '<div class="card" style="margin-bottom:14px"><h3>📋 Structure des tableaux — vue d\'ensemble</h3>' +
     '<div style="overflow-x:auto"><table><thead><tr><th>Tableau</th><th>Inscrits</th><th>Poules</th><th>Sortants</th><th>Parcours</th><th>Matchs</th><th>Horaire</th><th>Fin estimée</th><th>Attente max</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
-    "<p style=\"font-size:.72rem;color:var(--em);margin:8px 0 0\">Parcours : « (J2) » marque le tour où le tableau reprend le dimanche. Les poules sont composées automatiquement pour minimiser les matchs ; au-delà de 24 inscrits, élimination directe. Alternative par tableau : la ronde suisse (personne n'est éliminé, chaque inscrit joue une fois par ronde, classement final aux victoires).</p></div>" +
+    noteHtml("Parcours", "<p style=\"font-size:.72rem;color:var(--em);margin:0\">Parcours : « (J2) » marque le tour où le tableau reprend le dimanche. Les poules sont composées automatiquement pour minimiser les matchs ; au-delà de 24 inscrits, élimination directe. Alternative par tableau : la ronde suisse (personne n'est éliminé, chaque inscrit joue une fois par ronde, classement final aux victoires).</p>") + "</div>" +
     '<div class="grid2">' + dayCards + "</div>";
 }
 
@@ -1490,7 +1509,7 @@ function viewClassement(plan) {
       ms.length + " matchs · appel " + fmtTime(prem) + " → fin " + fmtTime(dern) + " · attente max " + (stAll.n ? attFmt(stAll.max) : "—") + " · moy " + (stAll.n ? attFmt(stAll.moy) : "—") + "</span></h3>" +
       "<table><thead><tr><th>Jour</th><th>Appel</th><th>Début</th><th>Terrain</th><th title=\"numéro du match : commence à 1 et s'incrémente jusqu'à la fin du tournoi (même index dans toutes les vues et l'export)\">N°</th><th title='numéro de tour en poules (ex. Tour 1) ou niveau en élimination directe (ex. 1/4 Finale)'>Tour</th><th>Rencontre</th><th title='attente totale depuis la fin du match précédent, repos inclus, pour le joueur ou la paire concernée'>Attente</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
   }).join("");
-  return "<p style='font-size:.72rem;color:var(--em);margin:0 0 12px'>Matchs regroupés par classement (discipline × classement), dans l'ordre chronologique. Le terrain de chaque match reste indiqué, mais la répartition par terrain n'a pas de sens organisationnel : elle dépend de la durée réelle des matchs.</p>" + blocks;
+  return noteHtml("Vue par classement", "<p style='font-size:.72rem;color:var(--em);margin:0 0 12px'>Matchs regroupés par classement (discipline × classement), dans l'ordre chronologique. Le terrain de chaque match reste indiqué, mais la répartition par terrain n'a pas de sens organisationnel : elle dépend de la durée réelle des matchs.</p>") + blocks;
 }
 
 function viewTab(plan, tid) {

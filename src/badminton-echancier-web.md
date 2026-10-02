@@ -962,6 +962,23 @@ const ATT_CSS = `
 .attb-4 { background-color: #fed7aa !important; color: #7c2d12 !important; }
 .attb-5 { background-color: #fecaca !important; color: #7f1d1d !important; }
 `;
+/* ---------- notes et explications dépliables : masquées par défaut,
+   chacune s'ouvre d'un clic (élément natif <details>/<summary>) ;
+   masquées aussi à l'impression/PDF — couleur de la poignée adaptée
+   à chaque thème (classique vert, Bad18 rouge, dark bleu ciel) ---------- */
+const NOTE_CSS = `
+.note { border: 1px dashed #a7f3d0; border-radius: 10px; margin: 6px 0; }
+.theme-bad18 .note { border-color: #f87171; }
+.theme-dark .note { border-color: #33517a; }
+.note-sum { cursor: pointer; padding: 3px 10px; font-size: .72rem; font-weight: 700; color: #047857; list-style: none; user-select: none; }
+.theme-bad18 .note-sum { color: #b91c1c; }
+.theme-dark .note-sum { color: #38bdf8; }
+.note-sum::-webkit-details-marker { display: none; }
+.note-sum::after { content: " ▸"; }
+.note[open] .note-sum::after { content: " ▾"; }
+.note-body { padding: 2px 12px 8px; }
+@media print { .note { display: none !important; } }
+`;
 /* ---------- thème « dark » : fond bleu nuit — textes de contenu en
    bleu ciel (au lieu du vert), notes et explications en gris moyen ;
    bulles d'alerte/notifications et pastilles (attb-*, marges) inchangées :
@@ -1016,6 +1033,16 @@ function Bad18Logo({ size }) {
       <text x="10" y="38" fontFamily="'Arial Black', Arial, sans-serif" fontWeight="900" fontSize="26" fill="#ffffff">BAD</text>
       <text x="22" y="80" fontFamily="'Arial Black', Arial, sans-serif" fontWeight="900" fontSize="38" fill="#dc2626">18</text>
     </svg>
+  );
+}
+/* note dépliable : enveloppe un texte explicatif — masqué par défaut,
+   « ℹ️ » + libellé cliquable pour le déplier, un par un */
+function Note({ label, children }) {
+  return (
+    <details className="note">
+      <summary className="note-sum">ℹ️ {label}</summary>
+      <div className="note-body">{children}</div>
+    </details>
   );
 }
 function App() {
@@ -1127,12 +1154,14 @@ function App() {
         <style>{THEME_BAD18_CSS}</style>
         <style>{THEME_DARK_CSS}</style>
         <style>{ATT_CSS}</style>
+        <style>{NOTE_CSS}</style>
         <div className={cardCls}>
           <div className="flex items-center gap-3">
             <Bad18Logo size={52} />
             <h1 className="text-xl font-bold text-emerald-900">🏸 Échéancier Tournoi de Badminton</h1>
           </div>
-          <p className="mt-1 text-sm text-emerald-700">
+          <Note label="Fonctionnement">
+            <p className="mt-1 text-sm text-emerald-700">
             Paramétrage prédictif : indiquez pour chaque tableau le nombre de joueurs/paires,
             les sortants par poule et le(s) jour(s) de jeu, et le format de chaque tableau
             (poules + élimination directe, ronde suisse + élimination directe, ou ronde suisse seule).
@@ -1143,7 +1172,8 @@ function App() {
             au-delà de 24 inscrits, élimination directe. Aucun nom à saisir. L'échéancier démarre ensuite les
             tableaux progressivement — les séries aux tours les plus nombreux d'abord, les suivantes au fil des
             créneaux libérés — et alterne les matchs pour minimiser l'attente, avec {REPOS} min de repos minimum et {APPEL} min d'appel.
-          </p>
+            </p>
+          </Note>
         </div>
 
         <h3 className="font-semibold text-emerald-900">🗓️ Jours du tournoi</h3>
@@ -1217,7 +1247,9 @@ function App() {
                     onChange={(e) => setJours((p) => ({ ...p, [j]: { ...p[j], pauseFin: e.target.value } }))} />
                 </div>
               </div>
-              <div className="mt-1 text-xs leading-tight text-emerald-400">Terrains : min 1 · max 16 (bornage appliqué au moment du calcul) · durée et marge laissées vides = valeurs communes · pause (Déjeuner/Remise médailles) vide = pas de pause (heure estimée usuelle : 12:30 → 13:30).</div>
+              <Note label="Journée">
+                <div className="mt-1 text-xs leading-tight text-emerald-400">Terrains : min 1 · max 16 (bornage appliqué au moment du calcul) · durée et marge laissées vides = valeurs communes · pause (Déjeuner/Remise médailles) vide = pas de pause (heure estimée usuelle : 12:30 → 13:30).</div>
+              </Note>
             </div>
           ))}
         </div>
@@ -1243,7 +1275,9 @@ function App() {
               <input type="number" min="0" max="20" className={inputCls} value={marge}
                 onChange={(e) => setMarge(e.target.value)} />
             </div>
-            <div className="flex items-end text-xs text-emerald-600">Repos minimum : {REPOS} min après la fin d'un match · Appel : {APPEL} min avant chaque match</div>
+            <Note label="Repos et appel">
+              <div className="flex items-end text-xs text-emerald-600">Repos minimum : {REPOS} min après la fin d'un match · Appel : {APPEL} min avant chaque match</div>
+            </Note>
             <div>
               <label className="mb-1 block text-xs font-medium text-emerald-600">Thème d'affichage</label>
               <select className={inputCls} value={theme} onChange={(e) => setTheme(e.target.value)}>
@@ -1261,33 +1295,43 @@ function App() {
               </select>
             </div>
           </div>
+          <Note label="Marge de sécurité">
           <p className="mt-2 text-xs text-emerald-600">
             La marge de sécurité est ajoutée à chaque match de l'échéancier théorique : si un match réel dépasse sa durée
             prévue (jusqu'à cette marge), les matchs suivants restent à l'heure et le repos réel ne descend jamais sous
             {" "}{REPOS} min. Au-delà, le respect du repos passe avant l'heure affichée : les matchs suivants sont décalés,
             jamais compressés, sauf accord du juge-arbitre ou des joueurs/paires.
           </p>
+          </Note>
           <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm text-emerald-800">
             <input type="checkbox" className="mt-0.5 w-auto" checked={combosTox} onChange={(e) => setCombosTox(e.target.checked)} />
-            <span><b>Autoriser les combinaisons toxiques</b> — par défaut, un joueur/paire n'est pas inscrit sur deux familles
-            le même jour (ex. simple <i>et</i> mixte) : aucun chevauchement possible. Cochez cette option seulement si le
-            dimensionnement du tournoi permet de telles combinaisons : l'échéancier sérialise alors les familles dans
-            chaque journée (simples, puis mixte, puis doubles), pour qu'un joueur/paire ne soit jamais attendu sur deux
-            familles à la fois.</span>
+            <span><b>Autoriser les combinaisons toxiques</b></span>
           </label>
+          <Note label="Combinaisons toxiques">
+            <p className="mt-1 text-xs text-emerald-600">
+            Par défaut, un joueur/paire n'est pas inscrit sur deux familles le même jour (ex. simple <i>et</i> mixte) :
+            aucun chevauchement possible. Cochez cette option seulement si le dimensionnement du tournoi permet de
+            telles combinaisons : l'échéancier sérialise alors les familles dans chaque journée (simples, puis mixte,
+            puis doubles), pour qu'un joueur/paire ne soit jamais attendu sur deux familles à la fois.
+            </p>
+          </Note>
+          <Note label="Demis et finales en fin de journée">
           <p className="mt-3 text-xs text-emerald-600">
             <b>Demi-finales et finales en fin de journée</b> : cette option se règle désormais pour chaque jour
             (case à cocher dans la carte du jour ci-dessus).
           </p>
+          </Note>
         </div>
 
         {/* Configurations enregistrées : sauver, recharger, exporter, importer */ }
         <div className={cardCls}>
           <h4 className="mb-2 font-semibold text-emerald-900">💾 Configurations enregistrées</h4>
+          <Note label="Configurations enregistrées">
           <p className="mb-2 text-xs text-emerald-600">
             Sauvegardez une configuration de départ (jours, tableaux, durées, thème) pour y revenir ensuite.
             Un fichier JSON peut être exporté pour l'archiver ou la transférer, puis réimporté.
           </p>
+          </Note>
           <div className="flex flex-wrap items-center gap-2">
             <input className={inputCls + " max-w-xs"} placeholder="Nom de la configuration" value={cfgName}
               onChange={(e) => setCfgName(e.target.value)} />
@@ -1401,6 +1445,7 @@ function App() {
                   })}
                 </tbody>
               </table>
+              <Note label="Lecture de l'estimation">
               <p className="mt-2 text-xs text-emerald-600">
                 Capacité d'un jour = terrains × (horaire ouvert ÷ durée de match). Besoin total : <b>{besoinTotal}</b> matchs
                 (poules + tableaux finaux), dont <b>{besoinDeux}</b> à répartir sur les deux jours, pour une capacité totale de
@@ -1415,6 +1460,7 @@ function App() {
                 l'écran tournoi l'affiche aussi (⚠️ horaire de fin modifié).
                 {realPlan.unscheduled.length > 0 && <span className="font-semibold text-red-700"> ⚠️ {realPlan.unscheduled.length} match(s) non planifiable(s) avec ces paramètres.</span>}
               </p>
+              </Note>
               {(() => {
                 const builtAll = tabs.map((t, k) => buildTab(t, k));
                 const cuts = cutsDeuxJours(builtAll, jours, daysConf.length ? dureeJour(daysConf[0]) : dureeCalc(dureeMatch, marge));
@@ -1422,9 +1468,11 @@ function App() {
                   .map((b) => b.label + " : jour 2 à partir des " + cuts[b.tid].label.toLowerCase());
                 if (!lignes.length) return null;
                 return (
+                  <Note label="Tableaux sur deux jours">
                   <p className="mt-1 text-xs text-emerald-700">
-                    🔀 Tableaux sur deux jours — {lignes.join(" · ")} (décision automatique selon la capacité du jour 1).
+                    🔀 {lignes.join(" · ")} (décision automatique selon la capacité du jour 1).
                   </p>
+                  </Note>
                 );
               })()}
             </div>
@@ -1583,6 +1631,7 @@ function App() {
       <style>{THEME_BAD18_CSS}</style>
       <style>{THEME_DARK_CSS}</style>
       <style>{ATT_CSS}</style>
+      <style>{NOTE_CSS}</style>
       <style>{PRINT_CSS}</style>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-emerald-900">🏸 Échéancier du week-end</h1>
@@ -1672,9 +1721,11 @@ function App() {
                     <span key={p.lbl} className={(ATT_STEPS[i] || {}).cls + " rounded px-1.5 py-0.5 text-[10px] font-semibold"}>{p.lbl} : {p.n}</span>
                   ))}
                 </div>
+                <Note label="Vue joueurs/paires">
                 <div className="mt-1 text-[11px] text-emerald-500">
                   vue joueurs/paires (repos {REPOS} min inclus) : moyenne {attFmt(st.attentesJoueurs.moy)} · max {attFmt(st.attentesJoueurs.max)} · {st.attentesJoueurs.sup60} ≥ 1h
                 </div>
+                </Note>
               </div>
               <div className="rounded-xl border border-emerald-100 p-3">
                 <div className="mb-2 text-sm font-semibold text-emerald-900">🏸 Matchs par discipline</div>
@@ -1714,10 +1765,12 @@ function App() {
                 </tbody>
               </table>
             </div>
+            <Note label="Effectifs estimés">
             <div className="mt-2 text-[11px] text-emerald-500">
               Effectifs estimés à partir des engagements par tableau (joueurs anonymes : un même joueur engagé dans plusieurs tableaux est compté plusieurs fois).
               Les inscriptions réelles seront intégrées avec l'import des noms (suite E).
             </div>
+            </Note>
           </div>
         );
       })()}
@@ -1762,6 +1815,7 @@ function App() {
       </div>
 
       {/* légende du code couleur des attentes */}
+      <Note label="Légende des attentes">
       <div className="rounded-xl border border-emerald-100 bg-white p-3 text-xs text-emerald-700 shadow-sm">
         <b>⏱ ATTENTE depuis le tour précédent</b> — attente totale depuis la fin du match précédent du joueur ou de la paire le plus
         attendu du match, repos de {REPOS} min inclus :
@@ -1778,6 +1832,7 @@ function App() {
         le repos de {REPOS} min passe avant l'heure affichée — les matchs suivants sont décalés, jamais compressés,
         sauf accord du juge-arbitre ou des joueurs/paires.
       </div>
+      </Note>
 
       {vueTab === "synthese" && (() => {
         return (
@@ -1836,11 +1891,13 @@ function App() {
                 </tbody>
               </table>
               </div>
+              <Note label="Parcours">
               <p className="mt-2 text-xs text-emerald-600">
                 Parcours : « (J2) » marque le tour où le tableau reprend le dimanche. Les poules sont composées automatiquement
                 pour minimiser les matchs ; au-delà de 24 inscrits, élimination directe. Alternative par tableau : la ronde
                 suisse (personne n'est éliminé, chaque inscrit joue une fois par ronde, classement final aux victoires).
               </p>
+              </Note>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {statsJour.map((s) => (
@@ -1929,11 +1986,13 @@ function App() {
       {vueTab === "classement" && (() => {
         return (
           <div className="space-y-5">
+            <Note label="Vue par classement">
             <p className="text-xs text-emerald-600">
               Matchs regroupés par classement (discipline × classement), dans l'ordre chronologique.
               Le terrain de chaque match reste indiqué, mais la répartition par terrain n'a pas de sens
               organisationnel : elle dépend de la durée réelle des matchs.
             </p>
+            </Note>
             {plan.built.map((b) => {
               // tous les matchs du samedi d'abord, puis ceux du dimanche (v1.7.1)
               const ms = plan.sched.filter((m) => m.tid === b.tid).sort(ordMatches(plan));
